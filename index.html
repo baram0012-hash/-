@@ -32,7 +32,8 @@
         let dbRef = null;
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            dbRef = firebase.database().ref('UGCH P.E.C CHL');
+            // 💡 선생님만의 고유한 방 이름 (다른 선생님과 겹치지 않게 영단어로 수정해주세요!)
+            dbRef = firebase.database().ref('teacher_room_hong');
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
         }
