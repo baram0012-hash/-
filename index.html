@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (교사 모니터링 랭킹 추가)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (교사 모니터링 랭킹 확정본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,7 +51,7 @@
             student: null,
             activeTab: 'draw',
             selectedRound: 1,
-            teacherSubTab: 'monitor', // 'monitor' 또는 'rank' (관리자 내부 탭)
+            teacherSubTab: 'monitor', // 'monitor' 또는 'rank'
             selectedAvatar: 'cat',
             dbData: { classes: {}, unlockedRounds: [true, false, false, false, false], teacherPwd: "0000" }
         };
@@ -226,6 +226,7 @@
             const inputPwd = prompt("선생님 전용 비밀번호를 입력하세요. (기본: 0000)");
             if (inputPwd === currentPwd) {
                 state.view = 'teacher_main';
+                state.teacherSubTab = 'monitor'; // 진입 시 기본 모니터링 탭
                 render();
             } else if (inputPwd !== null) {
                 alert("비밀번호가 일치하지 않습니다!");
@@ -670,7 +671,7 @@
                         </div>
                     </div>
 
-                    <!-- 🛠️ 관리자 모드 내부 탭 전환 (모니터링 ⇄ 전체 랭킹) -->
+                    <!-- 🛠️ 관리자 모드 내부 탭 전환 버튼 -->
                     <div class="grid grid-cols-2 p-3 bg-slate-900 border-b border-slate-800 gap-2">
                         <button onclick="state.teacherSubTab='monitor'; render();" class="py-2.5 rounded-xl text-xs font-bold transition ${state.teacherSubTab==='monitor'?'bg-teal-500 text-slate-950 shadow':'bg-slate-800 text-slate-400'}">
                             📋 학생 제출 및 차시 관리
