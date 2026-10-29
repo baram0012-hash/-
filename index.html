@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (최종 통합본)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금/해제 완벽)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <!-- Firebase SDK (실시간 데이터 연동) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -646,7 +646,6 @@
 
         function renderTeacherMain() {
             let classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
-            // 번호순(오름차순) 정렬 보장
             classStudents.sort((a, b) => Number(a.number) - Number(b.number));
 
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
@@ -664,18 +663,20 @@
                         </div>
                     </div>
 
+                    <!-- 🛠️ 차시 잠금 및 해제 완벽 토글 바 -->
                     <div class="p-3 bg-slate-900/90 border-b border-slate-800 space-y-2">
                         <div class="flex justify-between items-center text-xs">
-                            <span class="text-teal-400 font-bold">📌 현재 모니터링 중인 차시: [ ${state.selectedRound}차시 ]</span>
-                            <span class="text-[10px] text-slate-400">학생 화면과 자동 동기화됨</span>
+                            <span class="text-teal-400 font-bold">📌 모니터링 중: [ ${state.selectedRound}차시 ]</span>
+                            <span class="text-[10px] text-slate-400">버튼 클릭시 차시 [열림 ⇄ 잠김] 토글</span>
                         </div>
                         <div class="grid grid-cols-5 gap-1.5">
                             ${[1,2,3,4,5].map(r => {
                                 const open = unlockedRounds[r-1];
+                                const isSelected = state.selectedRound === r;
                                 return `
-                                    <button onclick="selectTeacherRound(${r})" class="py-2 rounded-lg text-xs font-bold transition flex flex-col items-center justify-center ${state.selectedRound===r?'bg-amber-400 text-slate-950 shadow':(open?'bg-teal-500/20 text-teal-300 border border-teal-500/40':'bg-slate-800 text-slate-400 border border-slate-700')}">
+                                    <button onclick="toggleRoundLock(${r})" class="py-2 rounded-lg text-xs font-bold transition flex flex-col items-center justify-center ${isSelected ? 'ring-2 ring-white ' : ''}${open ? 'bg-teal-500 text-slate-950 shadow' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
                                         <span>${r}차시</span>
-                                        <span class="text-[9px] mt-0.5">${open ? '열림' : '🔒 잠김'}</span>
+                                        <span class="text-[9px] mt-0.5">${open ? '열림🔓' : '잠김🔒'}</span>
                                     </button>
                                 `;
                             }).join('')}
@@ -710,7 +711,6 @@
                                         <button onclick="toggleApproval(${s.number})" ${!rData.submitted && !rData.approved ? 'disabled' : ''} class="text-xs font-bold px-2.5 py-1.5 rounded-lg transition ${rData.approved ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' : (rData.submitted ? 'bg-amber-500 text-slate-950 hover:bg-amber-400' : 'bg-slate-800 text-slate-600 border border-slate-700 cursor-not-allowed')}">
                                             ${rData.approved ? '✅ 승인' : (rData.submitted ? '⚡ 승인' : '미제출')}
                                         </button>
-                                        <!-- 학생 삭제 버튼 -->
                                         <button onclick="deleteStudent(${s.number}, '${s.name}')" class="text-xs font-bold px-2 py-1.5 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 rounded-lg transition">
                                             🗑️ 삭제
                                         </button>
@@ -723,6 +723,16 @@
             `;
         }
 
+        // --- 🔒 차시 잠금 및 해제 토글 함수 (클릭 시 상태 반전) ---
+        function toggleRoundLock(r) {
+            if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
+            // 현재 상태의 반대로 변경 (열림 ⇄ 잠김)
+            state.dbData.unlockedRounds[r-1] = !state.dbData.unlockedRounds[r-1];
+            // 해당 차시를 모니터링 대상으로도 동시 선택
+            state.selectedRound = r;
+            pushDb();
+        }
+
         function deleteStudent(num, name) {
             const confirmDelete = confirm(`정말로 [ 1학년 ${state.selectedClass}반 ${num}번 ${name} ] 학생을 삭제하시겠습니까?\n\n※ 해당 학생의 모든 차시 데이터가 파이어베이스에서 완전히 삭제됩니다.`);
             if (confirmDelete) {
@@ -731,13 +741,6 @@
                 pushDb();
                 alert(`${num}번 ${name} 학생 데이터가 성공적으로 삭제되었습니다.`);
             }
-        }
-
-        function selectTeacherRound(r) {
-            state.selectedRound = r;
-            if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
-            state.dbData.unlockedRounds[r-1] = true;
-            pushDb();
         }
 
         function changePasswordPrompt() {
