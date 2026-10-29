@@ -26,13 +26,13 @@
     <script>
         // --- Firebase 실시간 서버 연동 설정 ---
         const firebaseConfig = {
-            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app/"
+            databaseURL: "https://floor-curling-live-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
         
         let dbRef = null;
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            // 💡 선생님만의 고유한 방 이름 (다른 선생님과 겹치지 않게 영단어로 수정해주세요!)
+            // 💡 선생님만의 방 이름
             dbRef = firebase.database().ref('teacher_room_hong');
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
@@ -114,7 +114,9 @@
         }
 
         function renderLogin() {
-            const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
+            // 학생 목록 불러온 후 번호순 자동 정렬
+            let classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
+            classStudents.sort((a, b) => Number(a.number) - Number(b.number));
 
             return `
                 <div class="p-6 flex flex-col justify-between flex-grow bg-slate-950 text-white min-h-screen">
@@ -192,7 +194,7 @@
         function selectExisting(numStr) {
             if (!numStr) return;
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
-            const found = classStudents.find(s => s.number === Number(numStr));
+            const found = classStudents.find(s => Number(s.number) === Number(numStr));
             if (found) {
                 document.getElementById('input-num').value = found.number;
                 document.getElementById('input-name').value = found.name;
@@ -225,7 +227,7 @@
             if (!state.dbData.classes[state.selectedClass]) state.dbData.classes[state.selectedClass] = [];
 
             let classStudents = state.dbData.classes[state.selectedClass];
-            let student = classStudents.find(s => s.number === num);
+            let student = classStudents.find(s => Number(s.number) === num);
 
             if (!student) {
                 student = { 
@@ -237,11 +239,13 @@
                     records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } 
                 };
                 classStudents.push(student);
-                classStudents.sort((a,b) => a.number - b.number);
             } else {
                 student.name = name;
                 student.avatar = avatar;
             }
+
+            // 추가 후 항상 번호순 오름차순 정렬
+            classStudents.sort((a, b) => Number(a.number) - Number(b.number));
 
             state.student = student;
             pushDb();
@@ -251,7 +255,7 @@
 
         function renderStudentMain() {
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
-            const cur = classStudents.find(s => s.number === state.student.number) || state.student;
+            const cur = classStudents.find(s => Number(s.number) === Number(state.student.number)) || state.student;
             const rIdx = state.selectedRound - 1;
 
             const curD = cur.records.draw[rIdx];
@@ -525,7 +529,7 @@
 
         function submitTask() {
             const classStudents = state.dbData.classes[state.selectedClass] || [];
-            const cur = classStudents.find(s => s.number === state.student.number);
+            const cur = classStudents.find(s => Number(s.number) === Number(state.student.number));
             if (cur) {
                 cur.submitted = true;
                 pushDb();
@@ -606,7 +610,7 @@
 
         function mod(diff) {
             const classStudents = state.dbData.classes[state.selectedClass] || [];
-            const cur = classStudents.find(s => s.number === state.student.number);
+            const cur = classStudents.find(s => Number(s.number) === Number(state.student.number));
             if (!cur) return;
 
             const rIdx = state.selectedRound - 1;
@@ -625,7 +629,10 @@
         }
 
         function renderTeacherMain() {
-            const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
+            let classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
+            // 💡 교사 관리자 화면에서 학생 목록을 무조건 번호 오름차순(1번~30번)으로 완전 자동 정렬!
+            classStudents.sort((a, b) => Number(a.number) - Number(b.number));
+
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
 
             return `
@@ -721,7 +728,7 @@
 
         function toggleApproval(num) {
             const classStudents = state.dbData.classes[state.selectedClass] || [];
-            const student = classStudents.find(s => s.number === num);
+            const student = classStudents.find(s => Number(s.number) === Number(num));
             if (student) {
                 student.approved = !student.approved;
                 pushDb();
