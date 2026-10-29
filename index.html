@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 최종 완벽 해결)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (최종 안정화본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -62,11 +62,18 @@
                 if (data) {
                     state.dbData = data;
                     if (!state.dbData.classes) state.dbData.classes = {};
-                    // 💡 서버에 배열이 없거나 형식이 안 맞으면 기본값(1차시만 열림)으로 강제 초기화
                     if (!state.dbData.unlockedRounds || !Array.isArray(state.dbData.unlockedRounds) || state.dbData.unlockedRounds.length !== 5) {
                         state.dbData.unlockedRounds = [true, false, false, false, false];
                     }
                     if (!state.dbData.teacherPwd) state.dbData.teacherPwd = "0000";
+
+                    // 만약 학생이 로그인한 상태라면 서버 데이터 갱신에 맞춰 student 객체도 최신 상태로 동기화
+                    if (state.student && state.dbData.classes[state.selectedClass]) {
+                        const updatedCur = state.dbData.classes[state.selectedClass].find(s => Number(s.number) === Number(state.student.number));
+                        if (updatedCur) {
+                            state.student = updatedCur;
+                        }
+                    }
                 }
                 render();
             });
@@ -294,7 +301,7 @@
                         <div class="flex justify-between items-end">
                             <div>
                                 <span class="text-[11px] text-teal-400 font-semibold tracking-wider">1학년 ${state.selectedClass}반 ${cur.number}번</span>
-                                <h2 class="text-xl font-bold mt-0.5 text-slate-100">${avObj.icon}${cur.name}</h2>
+                                <h2 class="text-xl font-bold mt-0.5 text-slate-100">${avObj.icon} ${cur.name}</h2>
                             </div>
                             <div class="text-right">
                                 <div class="text-[10px] text-slate-400 font-medium">${state.selectedRound}차시 오늘 합계 점수</div>
@@ -489,7 +496,7 @@
 
                     <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 text-center space-y-4 relative overflow-hidden">
                         ${!isUnlocked ? `
-                            <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-white p-6 space-y-2">
+                            <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-white p-6 space-y-2">
                                 <span class="text-3xl">🔒</span>
                                 <h4 class="font-bold text-base">${state.selectedRound}차시는 아직 잠겨 있습니다</h4>
                                 <p class="text-xs text-slate-300">선생님이 관리자 화면에서 차시 잠금을 해제하면 연습을 시작할 수 있습니다.</p>
@@ -505,7 +512,7 @@
                             <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">성공 스톤 개수 (최대 ${maxCount}개)</span>
                             <div class="text-5xl font-black text-slate-900 my-2 tracking-tight">${displayVal} <span class="text-base font-normal text-slate-400">/ ${maxCount}개</span></div>
                             <span class="inline-block bg-teal-50 text-teal-700 font-semibold text-xs px-3 py-1 rounded-md border border-teal-200/60">
-                                항목 배점: ${score} /${maxScore} 점 (만점 한도)
+                                항목 배점: ${score} / ${maxScore} 점 (만점 한도)
                             </span>
                         </div>
 
@@ -532,7 +539,23 @@
         function selectRoundBtn(r) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             if (!unlockedRounds[r-1]) {
-                alert(`${r}차시는 아직 선생님이 차시 잠금을 해제하지 않았습니다!`); return; } state.selectedRound = r; render(); }  function submitTask() { const classStudents = state.dbData.classes[state.selectedClass] \vert{}\vert{} []; const cur = classStudents.find(s => Number(s.number) === Number(state.student.number)); if (cur) { const rKey = 'round_' + state.selectedRound; if (!cur.rounds[rKey]) cur.rounds[rKey] = { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } }; cur.rounds[rKey].submitted = true; pushDb(); alert(`${state.selectedRound}차시 수행 과제 제출이 완료되었습니다! 선생님 화면으로 즉시 전송됩니다.`);
+                alert(`${r}차시는 아직 선생님이 차시 잠금을 해제하지 않았습니다!`);
+                return;
+            }
+            state.selectedRound = r;
+            render();
+        }
+
+        function submitTask() {
+            if (!state.student) return;
+            const classStudents = state.dbData.classes[state.selectedClass] || [];
+            const cur = classStudents.find(s => Number(s.number) === Number(state.student.number));
+            if (cur) {
+                const rKey = 'round_' + state.selectedRound;
+                if (!cur.rounds[rKey]) cur.rounds[rKey] = { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } };
+                cur.rounds[rKey].submitted = true;
+                pushDb();
+                alert(`${state.selectedRound}차시 수행 과제 제출이 완료되었습니다! 선생님 화면으로 즉시 전송됩니다.`);
             }
         }
 
@@ -604,6 +627,7 @@
         }
 
         function mod(diff) {
+            if (!state.student) return;
             const classStudents = state.dbData.classes[state.selectedClass] || [];
             const cur = classStudents.find(s => Number(s.number) === Number(state.student.number));
             if (!cur) return;
@@ -721,12 +745,10 @@
 
         function toggleRoundLock(r) {
             if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
-            // 명확하게 반전
             state.dbData.unlockedRounds[r-1] = !state.dbData.unlockedRounds[r-1];
             pushDb();
         }
 
-        // 🔒 [추가] 2~5차시를 한 번에 다 잠그고 1차시만 열어주는 긴급 초기화 버튼 기능
         function resetAllLocks() {
             if (confirm("1차시만 남기고 2~5차시를 모두 잠금 상태로 초기화하시겠습니까?")) {
                 state.dbData.unlockedRounds = [true, false, false, false, false];
