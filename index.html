@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (배점통일완벽)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (iOS 완벽대응)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background-color: #0f172a; color: #334155; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #0f172a; color: #334155; -webkit-tap-highlight-color: transparent; }
         .btn-chic { transition: all 0.15s ease-in-out; }
         .btn-chic:active { transform: scale(0.96); }
         ::-webkit-scrollbar { width: 4px; }
@@ -32,7 +32,7 @@
         let dbRef = null;
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            // 💡 선생님만의 고유 방 이름 (아까 잘 되었던 그 이름 그대로 유지하세요!)
+            // 💡 선생님만의 고유 방 이름 (아까 쓰시던 것 유지!)
             dbRef = firebase.database().ref('UGCH floor curling');
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
@@ -47,7 +47,7 @@
         ];
 
         const state = {
-            view: 'login', // login, student_main, teacher_main
+            view: 'login',
             selectedClass: 1,
             student: null,
             activeTab: 'draw',
@@ -57,7 +57,6 @@
             dbData: { classes: {}, unlockedRounds: [true, false, false, false, false], teacherPwd: "0000" }
         };
 
-        // --- ⚡ 다른 기기 실시간 수신 리스너 ---
         if (dbRef) {
             dbRef.on('value', (snapshot) => {
                 const data = snapshot.val();
@@ -78,7 +77,6 @@
             render();
         }
 
-        // --- 🎯 공통 점수 계산 공식 (학생/관리자 완벽 일치) ---
         function calcDrawScore(c) {
             if (c < 0) return 0;
             const capped = Math.min(4, c);
@@ -107,7 +105,6 @@
             return 10;
         }
 
-        // 특정 차시의 총점 계산기 (기본점수 50점 + 드로우 + 가드 + 테이크아웃 중 최고값들 합산 혹은 각 항목별 점수 합산 기준 적용)
         function getRoundScore(rData) {
             if (!rData || !rData.records) return 0;
             const rIdx = state.selectedRound - 1;
@@ -137,7 +134,7 @@
                     <div class="py-6 text-center">
                         <span class="bg-slate-800 text-teal-400 font-semibold text-xs px-3.5 py-1.5 rounded-full tracking-wide">PHYSICAL EDUCATION</span>
                         <h1 class="text-3xl font-black mt-3 text-slate-100 tracking-tight">🥌 Floor Curling</h1>
-                        <p class="text-xs text-slate-400 mt-1.5 font-light">1학년 플로어 컬링 수행평가 (실시간 연동)</p>
+                        <p class="text-xs text-slate-400 mt-1.5 font-light">1학년 플로어 컬링 수행평가 (iOS 완벽대응)</p>
                     </div>
 
                     <div class="bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800 space-y-4">
@@ -435,7 +432,7 @@
                         <div class="space-y-2 text-xs">
                             <div class="flex justify-between items-center bg-teal-50/80 p-2.5 rounded-xl border border-teal-100"><span class="font-bold text-slate-800">👑 전교 1등</span><span class="font-bold text-teal-700 bg-teal-200/60 px-2.5 py-1 rounded-lg">상품권 10,000원 💳</span></div>
                             <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200/60"><span class="font-bold text-slate-700">👑 전교 2등</span><span class="font-bold text-slate-700 bg-slate-200/60 px-2.5 py-1 rounded-lg">상품권 5,000원 💳</span></div>
-                            <div class="flex justify-between items-center bg-teal-900/5 p-2.5 rounded-xl border border-teal-900/10"><span class="font-bold text-teal-900">👑 전교 3등</span><span class="font-bold text-teal-900 bg-teal-900/10 px-2.5 py-1 rounded-lg">상품권 3,000원 💳</span></div>
+                            <div class="flex justify-between items-center bg-teal-900/5 p-2.5 rounded-xl border border-teal-900/10"><span class="font-bold text-amber-900">👑 전교 3등</span><span class="font-bold text-amber-900 bg-amber-900/10 px-2.5 py-1 rounded-lg">상품권 3,000원 💳</span></div>
                         </div>
                     </div>
                 </div>
@@ -697,7 +694,6 @@
                             const rKey = 'round_' + state.selectedRound;
                             const rData = (s.rounds && s.rounds[rKey]) || { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } };
                             
-                            // 💡 학생과 100% 동일한 함수(getRoundScore)를 써서 점수가 정확히 일치하도록 수정함
                             const total = getRoundScore(rData);
                             const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
 
@@ -707,10 +703,13 @@
                                         <div class="text-xs font-bold text-slate-200">${avObj.icon} ${s.number}번 ${s.name}</div>
                                         <div class="text-[10px] text-slate-400 mt-0.5">${state.selectedRound}차시 점수 집계 완료</div>
                                     </div>
-                                    <div class="flex items-center space-x-3">
-                                        <span class="text-base font-bold text-teal-400">${total}점</span>
-                                        <button onclick="toggleApproval(${s.number})" ${!rData.submitted && !rData.approved ? 'disabled' : ''} class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${rData.approved ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' : (rData.submitted ? 'bg-amber-500 text-slate-950 hover:bg-amber-400' : 'bg-slate-800 text-slate-600 border border-slate-700 cursor-not-allowed')}">
-                                            ${rData.approved ? '✅ 승인완료' : (rData.submitted ? '⚡ 승인하기' : '미제출')}
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-base font-bold text-teal-400 mr-1">${total}점</span>
+                                        <button onclick="toggleApproval(${s.number})" ${!rData.submitted && !rData.approved ? 'disabled' : ''} class="text-xs font-bold px-2.5 py-1.5 rounded-lg transition ${rData.approved ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' : (rData.submitted ? 'bg-amber-500 text-slate-950 hover:bg-amber-400' : 'bg-slate-800 text-slate-600 border border-slate-700 cursor-not-allowed')}">
+                                            ${rData.approved ? '✅ 승인' : (rData.submitted ? '⚡ 승인' : '미제출')}
+                                        </button>
+                                        <button onclick="deleteStudent(${s.number}, '${s.name}')" class="text-xs font-bold px-2 py-1.5 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white border border-rose-500/40 rounded-lg transition">
+                                            🗑️ 삭제
                                         </button>
                                     </div>
                                 </div>
@@ -719,6 +718,16 @@
                     </div>
                 </div>
             `;
+        }
+
+        function deleteStudent(num, name) {
+            const confirmDelete = confirm(`정말로 [ 1학년 ${state.selectedClass}반 ${num}번 ${name} ] 학생을 삭제하시겠습니까?\n\n※ 해당 학생의 모든 차시 데이터가 파이어베이스에서 완전히 삭제됩니다.`);
+            if (confirmDelete) {
+                let classStudents = state.dbData.classes[state.selectedClass] || [];
+                state.dbData.classes[state.selectedClass] = classStudents.filter(s => Number(s.number) !== Number(num));
+                pushDb();
+                alert(`${num}번 ${name} 학생 데이터가 성공적으로 삭제되었습니다.`);
+            }
         }
 
         function selectTeacherRound(r) {
@@ -739,14 +748,14 @@
                     alert("비밀번호가 변경되었습니다!");
                 }
             } else if (inputOld !== null) {
-                alert("현재 비밀번호가 틀렸습니다.");
+                alert("현재 비밀번호가 틀!='현재 비밀번호가 틀렸습니다.'");
             }
         }
 
         function toggleApproval(num) {
             const classStudents = state.dbData.classes[state.selectedClass] || [];
             const student = classStudents.find(s => Number(s.number) === Number(num));
-            if (student) {
+            if (student, rKey) {
                 const rKey = 'round_' + state.selectedRound;
                 if (student.rounds && student.rounds[rKey]) {
                     student.rounds[rKey].approved = !student.rounds[rKey].approved;
