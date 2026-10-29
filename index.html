@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (차시·반별 독립완벽)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <!-- Firebase SDK (실시간 데이터 연동) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -24,15 +24,15 @@
     <div id="app" class="w-full max-w-md bg-white min-h-screen shadow-2xl flex flex-col relative border-x border-slate-100"></div>
 
     <script>
-        // --- [수정 포인트 1] 본인의 파이어베이스 데이터베이스 URL 주소를 여기에 넣으세요! ---
+        // --- Firebase 실시간 서버 연동 설정 ---
         const firebaseConfig = {
-            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app/"
+            databaseURL: "https://floor-curling-live-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
         
         let dbRef = null;
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            // --- [수정 포인트 2] 다른 선생님과 겹치지 않게 선생님만의 고유한 방 이름(영단어)을 적어주세요! ---
+            // 💡 선생님만의 고유 방 이름 (아까 잘 되었던 그 이름 그대로 유지하세요!)
             dbRef = firebase.database().ref('UGCH floor curling');
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
@@ -47,16 +47,17 @@
         ];
 
         const state = {
-            view: 'login',
+            view: 'login', // login, student_main, teacher_main
             selectedClass: 1,
             student: null,
             activeTab: 'draw',
-            selectedRound: 1,
+            selectedRound: 1, // 기본 선택 차시 (학생/교사 공유)
             rankCategory: 'total',
             selectedAvatar: 'cat',
             dbData: { classes: {}, unlockedRounds: [true, false, false, false, false], teacherPwd: "0000" }
         };
 
+        // --- ⚡ 다른 기기 실시간 수신 리스너 ---
         if (dbRef) {
             dbRef.on('value', (snapshot) => {
                 const data = snapshot.val();
@@ -121,7 +122,7 @@
                     <div class="py-6 text-center">
                         <span class="bg-slate-800 text-teal-400 font-semibold text-xs px-3.5 py-1.5 rounded-full tracking-wide">PHYSICAL EDUCATION</span>
                         <h1 class="text-3xl font-black mt-3 text-slate-100 tracking-tight">🥌 Floor Curling</h1>
-                        <p class="text-xs text-slate-400 mt-1.5 font-light">1학년 플로어 컬링 수행평가 (실시간 연동)</p>
+                        <p class="text-xs text-slate-400 mt-1.5 font-light">1학년 플로어 컬링 수행평가 (차시·반별 독립 연동)</p>
                     </div>
 
                     <div class="bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800 space-y-4">
@@ -232,9 +233,7 @@
                     number: num, 
                     name: name, 
                     avatar: avatar,
-                    submitted: false,
-                    approved: false,
-                    records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } 
+                    rounds: {} // 차시별 데이터 객체 완벽 독립 분리
                 };
                 classStudents.push(student);
             } else {
@@ -253,11 +252,22 @@
         function renderStudentMain() {
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             const cur = classStudents.find(s => Number(s.number) === Number(state.student.number)) || state.student;
+            
+            const rKey = 'round_' + state.selectedRound;
+            if (!cur.rounds) cur.rounds = {};
+            if (!cur.rounds[rKey]) {
+                cur.rounds[rKey] = {
+                    submitted: false,
+                    approved: false,
+                    records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] }
+                };
+            }
+            const rData = cur.rounds[rKey];
             const rIdx = state.selectedRound - 1;
 
-            const curD = cur.records.draw[rIdx];
-            const curG = cur.records.guard[rIdx];
-            const curT = cur.records.takeout[rIdx];
+            const curD = rData.records.draw[rIdx];
+            const curG = rData.records.guard[rIdx];
+            const curT = rData.records.takeout[rIdx];
 
             const scoreD = curD >= 0 ? calcDrawScore(curD) : 0;
             const scoreG = curG >= 0 ? calcGuardScore(curG) : 0;
@@ -266,7 +276,7 @@
 
             let completedCount = 0;
             for (let i = 0; i < 5; i++) {
-                if (cur.records.draw[i] >= 0 || cur.records.guard[i] >= 0 || cur.records.takeout[i] >= 0) {
+                if (rData.records.draw[i] >= 0 || rData.records.guard[i] >= 0 || rData.records.takeout[i] >= 0) {
                     completedCount++;
                 }
             }
@@ -290,7 +300,7 @@
                         <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60 space-y-1.5">
                             <div class="flex justify-between text-[10px] font-semibold text-slate-400">
                                 <span>🚩 START</span>
-                                <span class="text-teal-400">차시 달성률 (${completedCount}/5 완료)</span>
+                                <span class="text-teal-400">${state.selectedRound}차시 달성률 (${completedCount}/5 완료)</span>
                                 <span>🏁 FINISH</span>
                             </div>
                             <div class="relative w-full h-7 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
@@ -302,12 +312,12 @@
                         </div>
 
                         <div class="pt-1 flex justify-between items-center text-xs">
-                            <span class="text-slate-400 text-[11px]">수행평가 승인 상태:</span>
-                            ${cur.approved 
+                            <span class="text-slate-400 text-[11px]">${state.selectedRound}차시 승인 상태:</span>
+                            ${rData.approved 
                                 ? `<span class="bg-teal-500/20 text-teal-300 font-bold px-2.5 py-0.5 rounded-md border border-teal-500/40 text-[11px]">✅ 선생님 승인 완료</span>` 
-                                : (cur.submitted 
+                                : (rData.submitted 
                                     ? `<span class="bg-sky-500/20 text-sky-300 font-bold px-2.5 py-0.5 rounded-md border border-sky-500/40 text-[11px]">⏳ 선생님 확인 대기 중</span>`
-                                    : `<span class="bg-amber-500/20 text-amber-300 font-bold px-2.5 py-0.5 rounded-md border border-amber-500/40 text-[11px]">✍️ 과제 수행 중 (미제출)</span>`)
+                                    : `<span class="bg-amber-500/20 text-amber-300 font-bold px-2.5 py-0.5 rounded-md border border-amber-500/40 text-[11px]">✍️ ${state.selectedRound}차시 과제 수행 중</span>`)
                             }
                         </div>
                     </div>
@@ -322,7 +332,7 @@
                     </div>
 
                     <div class="p-4 flex-grow flex flex-col justify-between">
-                        ${state.activeTab==='rank' ? renderRank() : (state.activeTab==='reward' ? renderRewardTab() : (state.activeTab==='guide' ? renderGuideTab() : renderPractice(cur)))}
+                        ${state.activeTab==='rank' ? renderRank() : (state.activeTab==='reward' ? renderRewardTab() : (state.activeTab==='guide' ? renderGuideTab() : renderPractice(cur, rData)))}
                     </div>
                 </div>
             `;
@@ -426,12 +436,12 @@
             `;
         }
 
-        function renderPractice(cur) {
+        function renderPractice(cur, rData) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
             const isUnlocked = unlockedRounds[rIdx];
 
-            const val = cur.records[state.activeTab][rIdx];
+            const val = rData.records[state.activeTab][rIdx];
             const displayVal = val >= 0 ? val : 0;
             const score = val >= 0 
                 ? (state.activeTab==='draw'?calcDrawScore(val):state.activeTab==='guard'?calcGuardScore(val):calcTakeoutScore(val))
@@ -456,7 +466,7 @@
                 <div class="space-y-4">
                     <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-200/80">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-[11px] font-semibold text-slate-400">수업 차시 선택</span>
+                            <span class="text-[11px] font-semibold text-slate-400">수업 차시 선택 (반별 독립)</span>
                             <span class="text-[10px] text-slate-400">🔒 표시 차시는 교사 승인 후 오픈</span>
                         </div>
                         <div class="grid grid-cols-5 gap-1.5">
@@ -504,8 +514,8 @@
                         </div>
 
                         <div class="pt-2 border-t border-slate-100">
-                            <button onclick="submitTask()" class="btn-chic w-full py-3 rounded-xl font-bold text-sm ${cur.submitted ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-teal-500 hover:bg-teal-400 text-slate-950 shadow'}">
-                                ${cur.submitted ? '✅ 과제 제출 완료 (선생님 확인 대기)' : '📤 오늘 과제 수행 완료 (제출하기)'}
+                            <button onclick="submitTask()" class="btn-chic w-full py-3 rounded-xl font-bold text-sm ${rData.submitted ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-teal-500 hover:bg-teal-400 text-slate-950 shadow'}">
+                                ${rData.submitted ? `✅ ${state.selectedRound}차시 제출 완료 (선생님 확인 대기)` : `📤 ${state.selectedRound}차시 과제 수행 완료 (제출하기)`}
                             </button>
                         </div>
                     </div>
@@ -528,9 +538,11 @@
             const classStudents = state.dbData.classes[state.selectedClass] || [];
             const cur = classStudents.find(s => Number(s.number) === Number(state.student.number));
             if (cur) {
-                cur.submitted = true;
+                const rKey = 'round_' + state.selectedRound;
+                if (!cur.rounds[rKey]) cur.rounds[rKey] = { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } };
+                cur.rounds[rKey].submitted = true;
                 pushDb();
-                alert("오늘의 수행 과제 제출이 완료되었습니다! 선생님 화면으로 즉시 전송됩니다.");
+                alert(`${state.selectedRound}차시 수행 과제 제출이 완료되었습니다! 선생님 화면으로 즉시 전송됩니다.`);
             }
         }
 
@@ -540,63 +552,60 @@
             for (let c = 1; c <= 9; c++) {
                 const stds = classes[c] || [];
                 stds.forEach(s => {
-                    if (s.approved) {
-                        const validD = s.records.draw.filter(v => v >= 0);
-                        const validG = s.records.guard.filter(v => v >= 0);
-                        const validT = s.records.takeout.filter(v => v >= 0);
+                    if (s.rounds) {
+                        // 모든 차시의 승인된 점수를 합산하여 종합 랭킹 집계
+                        let totalScoreAllRounds = 0;
+                        let hasApprovedRound = false;
 
-                        const maxD = validD.length > 0 ? Math.min(4, Math.max(...validD)) : 0;
-                        const maxG = validG.length > 0 ? Math.min(4, Math.max(...validG)) : 0;
-                        const maxT = validT.length > 0 ? Math.min(3, Math.max(...validT)) : 0;
+                        for (let r = 1; r <= 5; r++) {
+                            const rKey = 'round_' + r;
+                            const rData = s.rounds[rKey];
+                            if (rData && rData.approved) {
+                                hasApprovedRound = true;
+                                const validD = rData.records.draw.filter(v => v >= 0);
+                                const validG = rData.records.guard.filter(v => v >= 0);
+                                const validT = rData.records.takeout.filter(v => v >= 0);
 
-                        const totalScore = calcDrawScore(maxD) + calcGuardScore(maxG) + calcTakeoutScore(maxT);
-                        const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
+                                const maxD = validD.length > 0 ? Math.min(4, Math.max(...validD)) : 0;
+                                const maxG = validG.length > 0 ? Math.min(4, Math.max(...validG)) : 0;
+                                const maxT = validT.length > 0 ? Math.min(3, Math.max(...validT)) : 0;
 
-                        list.push({
-                            c, name: s.name, avatarIcon: avObj.icon,
-                            maxD, maxG, maxT, totalScore
-                        });
+                                totalScoreAllRounds += (calcDrawScore(maxD) + calcGuardScore(maxG) + calcTakeoutScore(maxT));
+                            }
+                        }
+
+                        if (hasApprovedRound) {
+                            const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
+                            list.push({
+                                c, number: s.number, name: s.name, avatarIcon: avObj.icon,
+                                totalScore: totalScoreAllRounds
+                            });
+                        }
                     }
                 });
             }
 
-            if (state.rankCategory === 'total') list.sort((a,b) => b.totalScore - a.totalScore);
-            else if (state.rankCategory === 'draw') list.sort((a,b) => b.maxD - a.maxD);
-            else if (state.rankCategory === 'guard') list.sort((a,b) => b.maxG - a.maxG);
-            else if (state.rankCategory === 'takeout') list.sort((a,b) => b.maxT - a.maxT);
+            list.sort((a,b) => b.totalScore - a.totalScore);
 
             return `
                 <div class="space-y-3">
                     <div class="text-center">
-                        <h3 class="text-base font-bold text-slate-900 tracking-tight">🏆 수행평가 랭킹 TOP 10</h3>
-                        <p class="text-[11px] text-slate-400">선생님 승인이 완료된 기록만 실시간 집계됩니다.</p>
+                        <h3 class="text-base font-bold text-slate-900 tracking-tight">🏆 수행평가 종합 랭킹 TOP 10</h3>
+                        <p class="text-[11px] text-slate-400">선생님 승인이 완료된 차시별 기록이 누적 집계됩니다.</p>
                     </div>
 
-                    <div class="flex bg-slate-200 p-1 rounded-xl text-xs font-bold text-slate-600">
-                        <button onclick="state.rankCategory='total'; render();" class="flex-1 py-1.5 rounded-lg ${state.rankCategory==='total'?'bg-slate-900 text-white shadow':''}">종합</button>
-                        <button onclick="state.rankCategory='draw'; render();" class="flex-1 py-1.5 rounded-lg ${state.rankCategory==='draw'?'bg-slate-900 text-white shadow':''}">🎯드로우</button>
-                        <button onclick="state.rankCategory='guard'; render();" class="flex-1 py-1.5 rounded-lg ${state.rankCategory==='guard'?'bg-slate-900 text-white shadow':''}">🛡️가드</button>
-                        <button onclick="state.rankCategory='takeout'; render();" class="flex-1 py-1.5 rounded-lg ${state.rankCategory==='takeout'?'bg-slate-900 text-white shadow':''}">💥테이크아웃</button>
-                    </div>
-
-                    <div class="space-y-2 max-h-[340px] overflow-y-auto pr-0.5">
+                    <div class="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
                         ${list.length === 0 ? '<div class="text-center py-10 text-xs text-slate-400">선생님 승인을 완료한 학생 기록이 아직 없습니다.</div>' : ''}
                         ${list.slice(0, 10).map((st, i) => {
-                            let displayVal = "";
-                            if (state.rankCategory === 'total') displayVal = `${st.totalScore}점`;
-                            else if (state.rankCategory === 'draw') displayVal = `${st.maxD}개 (${calcDrawScore(st.maxD)}점)`;
-                            else if (state.rankCategory === 'guard') displayVal = `${st.maxG}개 (${calcGuardScore(st.maxG)}점)`;
-                            else if (state.rankCategory === 'takeout') displayVal = `${st.maxT}개 (${calcTakeoutScore(st.maxT)}점)`;
-
                             return `
                                 <div class="bg-white p-3.5 rounded-xl flex justify-between items-center shadow-sm border border-slate-200/70">
                                     <div class="flex items-center space-x-3">
                                         <span class="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${i===0?'bg-amber-400 text-slate-950':i===1?'bg-slate-300 text-slate-800':i===2?'bg-amber-700 text-white':'bg-slate-100 text-slate-500'}">
                                             ${i+1}
                                         </span>
-                                        <span class="font-medium text-xs text-slate-800">${st.avatarIcon} 1학년 ${st.c}반 ${st.name}</span>
+                                        <span class="font-medium text-xs text-slate-800">${st.avatarIcon} 1-${st.c} ${st.number}번 ${st.name}</span>
                                     </div>
-                                    <span class="font-bold text-sm text-teal-600">${displayVal}</span>
+                                    <span class="font-bold text-sm text-teal-600">${st.totalScore}점</span>
                                 </div>
                             `;
                         }).join('')}
@@ -610,8 +619,15 @@
             const cur = classStudents.find(s => Number(s.number) === Number(state.student.number));
             if (!cur) return;
 
+            const rKey = 'round_' + state.selectedRound;
+            if (!cur.rounds) cur.rounds = {};
+            if (!cur.rounds[rKey]) {
+                cur.rounds[rKey] = { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } };
+            }
+            const rData = cur.rounds[rKey];
+
             const rIdx = state.selectedRound - 1;
-            let val = cur.records[state.activeTab][rIdx];
+            let val = rData.records[state.activeTab][rIdx];
             if (val < 0) val = 0;
 
             let maxCap = 4;
@@ -619,9 +635,9 @@
 
             val = Math.min(maxCap, Math.max(0, val + diff));
 
-            cur.records[state.activeTab][rIdx] = val;
-            cur.submitted = false;
-            cur.approved = false;
+            rData.records[state.activeTab][rIdx] = val;
+            rData.submitted = false;
+            rData.approved = false;
             pushDb();
         }
 
@@ -644,21 +660,27 @@
                         </div>
                     </div>
 
-                    <div class="p-3 bg-slate-900/90 border-b border-slate-800 space-y-1.5">
-                        <span class="text-[10px] text-teal-400 font-semibold block">🔓 학생 차시 접근 잠금 해제 설정</span>
+                    <!-- 1. 차시 선택 및 제어 바 (반별 독립 차시 진행 핵심) -->
+                    <div class="p-3 bg-slate-900/90 border-b border-slate-800 space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-teal-400 font-bold">📌 현재 모니터링 중인 차시: [ ${state.selectedRound}차시 ]</span>
+                            <span class="text-[10px] text-slate-400">학생 화면과 자동 동기화됨</span>
+                        </div>
                         <div class="grid grid-cols-5 gap-1.5">
                             ${[1,2,3,4,5].map(r => {
                                 const open = unlockedRounds[r-1];
                                 return `
-                                    <button onclick="toggleRoundLock(${r})" class="py-1.5 rounded-lg text-xs font-bold transition flex flex-col items-center justify-center ${open?'bg-teal-500 text-slate-950':'bg-slate-800 text-slate-400 border border-slate-700'}">
+                                    <button onclick="selectTeacherRound(${r})" class="py-2 rounded-lg text-xs font-bold transition flex flex-col items-center justify-center ${state.selectedRound===r?'bg-amber-400 text-slate-950 shadow':'(open?\'bg-teal-500/20 text-teal-300 border border-teal-500/40\':\'bg-slate-800 text-slate-400 border border-slate-700\')'}">
                                         <span>${r}차시</span>
                                         <span class="text-[9px] mt-0.5">${open ? '열림' : '🔒 잠김'}</span>
                                     </button>
                                 `;
                             }).join('')}
                         </div>
+                        <div class="text-[10px] text-slate-400 text-center">💡 차시 버튼을 누르면 해당 차시의 제출 현황이 모니터링됩니다. (더블클릭시 잠금토글은 아래 유지)</div>
                     </div>
 
+                    <!-- 반 선택 탭 -->
                     <div class="bg-slate-900/60 p-2 flex overflow-x-auto space-x-1 border-b border-slate-800">
                         ${[1,2,3,4,5,6,7,8,9].map(c => `
                             <button onclick="state.selectedClass=${c}; render();" class="px-3 py-1.5 rounded-lg text-xs font-medium ${c===state.selectedClass?'bg-teal-500 text-slate-950 font-bold':'bg-slate-800 text-slate-400'}">
@@ -667,12 +689,16 @@
                         `).join('')}
                     </div>
 
+                    <!-- 학생 목록 및 승인 센터 -->
                     <div class="p-4 flex-grow overflow-y-auto space-y-2">
                         ${classStudents.length === 0 ? '<div class="text-center py-10 text-xs text-slate-500">이 반에 등록된 학생이 없습니다.</div>' : ''}
                         ${classStudents.map(s => {
-                            const validD = s.records.draw.filter(v => v >= 0);
-                            const validG = s.records.guard.filter(v => v >= 0);
-                            const validT = s.records.takeout.filter(v => v >= 0);
+                            const rKey = 'round_' + state.selectedRound;
+                            const rData = (s.rounds && s.rounds[rKey]) || { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } };
+
+                            const validD = rData.records.draw.filter(v => v >= 0);
+                            const validG = rData.records.guard.filter(v => v >= 0);
+                            const validT = rData.records.takeout.filter(v => v >= 0);
 
                             const maxD = validD.length > 0 ? Math.min(4, Math.max(...validD)) : 0;
                             const maxG = validG.length > 0 ? Math.min(4, Math.max(...validG)) : 0;
@@ -685,12 +711,12 @@
                                 <div class="bg-slate-900 p-3.5 rounded-xl flex justify-between items-center border border-slate-800">
                                     <div>
                                         <div class="text-xs font-bold text-slate-200">${avObj.icon} ${s.number}번 ${s.name}</div>
-                                        <div class="text-[10px] text-slate-500 mt-0.5">최고기록 (드:${maxD} | 가:${maxG} | 테:${maxT})</div>
+                                        <div class="text-[10px] text-slate-400 mt-0.5">${state.selectedRound}차시 (드:${maxD} | 가:${maxG} | 테:${maxT})</div>
                                     </div>
                                     <div class="flex items-center space-x-3">
                                         <span class="text-base font-bold text-teal-400">${total}점</span>
-                                        <button onclick="toggleApproval(${s.number})" ${!s.submitted && !s.approved ? 'disabled' : ''} class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${s.approved ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' : (s.submitted ? 'bg-amber-500 text-slate-950 hover:bg-amber-400' : 'bg-slate-800 text-slate-600 border border-slate-700 cursor-not-allowed')}">
-                                            ${s.approved ? '✅ 승인완료' : (s.submitted ? '⚡ 승인하기' : '미제출')}
+                                        <button onclick="toggleApproval(${s.number})" ${!rData.submitted && !rData.approved ? 'disabled' : ''} class="text-xs font-bold px-3 py-1.5 rounded-lg transition ${rData.approved ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' : (rData.submitted ? 'bg-amber-500 text-slate-950 hover:bg-amber-400' : 'bg-slate-800 text-slate-600 border border-slate-700 cursor-not-allowed')}">
+                                            ${rData.approved ? '✅ 승인완료' : (rData.submitted ? '⚡ 승인하기' : '미제출')}
                                         </button>
                                     </div>
                                 </div>
@@ -701,9 +727,12 @@
             `;
         }
 
-        function toggleRoundLock(r) {
+        function selectTeacherRound(r) {
+            // 교사 모니터링 차시 변경 및 학생 화면 실시간 동기화
+            state.selectedRound = r;
+            // 해당 차시 잠금이 풀려있지 않다면 자동으로 열어주거나 선택 반영
             if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
-            state.dbData.unlockedRounds[r-1] = !state.dbData.unlockedRounds[r-1];
+            state.dbData.unlockedRounds[r-1] = true; // 교사가 선택한 차시는 즉시 학생들도 접근 가능하게 열어줌
             pushDb();
         }
 
@@ -726,8 +755,11 @@
             const classStudents = state.dbData.classes[state.selectedClass] || [];
             const student = classStudents.find(s => Number(s.number) === Number(num));
             if (student) {
-                student.approved = !student.approved;
-                pushDb();
+                const rKey = 'round_' + state.selectedRound;
+                if (student.rounds && student.rounds[rKey]) {
+                    student.rounds[rKey].approved = !student.rounds[rKey].approved;
+                    pushDb();
+                }
             }
         }
 
