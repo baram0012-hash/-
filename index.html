@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 수정본)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 최종 완벽 해결)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -62,7 +62,10 @@
                 if (data) {
                     state.dbData = data;
                     if (!state.dbData.classes) state.dbData.classes = {};
-                    if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
+                    // 💡 서버에 배열이 없거나 형식이 안 맞으면 기본값(1차시만 열림)으로 강제 초기화
+                    if (!state.dbData.unlockedRounds || !Array.isArray(state.dbData.unlockedRounds) || state.dbData.unlockedRounds.length !== 5) {
+                        state.dbData.unlockedRounds = [true, false, false, false, false];
+                    }
                     if (!state.dbData.teacherPwd) state.dbData.teacherPwd = "0000";
                 }
                 render();
@@ -291,7 +294,7 @@
                         <div class="flex justify-between items-end">
                             <div>
                                 <span class="text-[11px] text-teal-400 font-semibold tracking-wider">1학년 ${state.selectedClass}반 ${cur.number}번</span>
-                                <h2 class="text-xl font-bold mt-0.5 text-slate-100">${avObj.icon} ${cur.name}</h2>
+                                <h2 class="text-xl font-bold mt-0.5 text-slate-100">${avObj.icon}${cur.name}</h2>
                             </div>
                             <div class="text-right">
                                 <div class="text-[10px] text-slate-400 font-medium">${state.selectedRound}차시 오늘 합계 점수</div>
@@ -502,7 +505,7 @@
                             <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">성공 스톤 개수 (최대 ${maxCount}개)</span>
                             <div class="text-5xl font-black text-slate-900 my-2 tracking-tight">${displayVal} <span class="text-base font-normal text-slate-400">/ ${maxCount}개</span></div>
                             <span class="inline-block bg-teal-50 text-teal-700 font-semibold text-xs px-3 py-1 rounded-md border border-teal-200/60">
-                                항목 배점: ${score} / ${maxScore} 점 (만점 한도)
+                                항목 배점: ${score} /${maxScore} 점 (만점 한도)
                             </span>
                         </div>
 
@@ -529,22 +532,7 @@
         function selectRoundBtn(r) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             if (!unlockedRounds[r-1]) {
-                alert(`${r}차시는 아직 선생님이 차시 잠금을 해제하지 않았습니다!`);
-                return;
-            }
-            state.selectedRound = r;
-            render();
-        }
-
-        function submitTask() {
-            const classStudents = state.dbData.classes[state.selectedClass] || [];
-            const cur = classStudents.find(s => Number(s.number) === Number(state.student.number));
-            if (cur) {
-                const rKey = 'round_' + state.selectedRound;
-                if (!cur.rounds[rKey]) cur.rounds[rKey] = { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } };
-                cur.rounds[rKey].submitted = true;
-                pushDb();
-                alert(`${state.selectedRound}차시 수행 과제 제출이 완료되었습니다! 선생님 화면으로 즉시 전송됩니다.`);
+                alert(`${r}차시는 아직 선생님이 차시 잠금을 해제하지 않았습니다!`); return; } state.selectedRound = r; render(); }  function submitTask() { const classStudents = state.dbData.classes[state.selectedClass] \vert{}\vert{} []; const cur = classStudents.find(s => Number(s.number) === Number(state.student.number)); if (cur) { const rKey = 'round_' + state.selectedRound; if (!cur.rounds[rKey]) cur.rounds[rKey] = { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } }; cur.rounds[rKey].submitted = true; pushDb(); alert(`${state.selectedRound}차시 수행 과제 제출이 완료되었습니다! 선생님 화면으로 즉시 전송됩니다.`);
             }
         }
 
@@ -656,16 +644,17 @@
                             <button onclick="changePasswordPrompt()" class="text-[10px] text-teal-400 underline mt-0.5">🔑 비밀번호 변경</button>
                         </div>
                         <div class="flex space-x-1">
+                            <button onclick="resetAllLocks()" class="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-1 rounded-lg font-bold">🔒 전체 잠금</button>
                             <button onclick="pushDb()" class="text-xs bg-teal-500 text-slate-950 px-2.5 py-1.5 rounded-lg font-bold">🔄 새로고침</button>
                             <button onclick="state.view='login'; render();" class="text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700">로그아웃</button>
                         </div>
                     </div>
 
-                    <!-- 🛠️ 차시 제어 바 (클릭시 잠금/해제 토글 + 모니터링 선택 분리) -->
+                    <!-- 🛠️ 차시 제어 바 -->
                     <div class="p-3 bg-slate-900/90 border-b border-slate-800 space-y-2">
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-teal-400 font-bold">📌 모니터링 중: [ ${state.selectedRound}차시 ]</span>
-                            <span class="text-[10px] text-slate-400">버튼 <b class="text-amber-400">더블클릭(또는 연타)</b>시 잠금/해제 토글</span>
+                            <span class="text-[10px] text-slate-400">아래 버튼을 눌러 차시별 잠금/해제 제어</span>
                         </div>
                         <div class="grid grid-cols-5 gap-1.5">
                             ${[1,2,3,4,5].map(r => {
@@ -673,11 +662,9 @@
                                 const isSelected = state.selectedRound === r;
                                 return `
                                     <div class="flex flex-col space-y-1">
-                                        <!-- 차시 선택 버튼 -->
                                         <button onclick="selectTeacherRound(${r})" class="w-full py-1.5 rounded-t-lg text-xs font-bold transition ${isSelected ? 'bg-amber-400 text-slate-950 shadow' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
-                                            ${r}차시조회
+                                            ${r}조회
                                         </button>
-                                        <!-- 잠금/해제 토글 버튼 -->
                                         <button onclick="toggleRoundLock(${r})" class="w-full py-1 rounded-b-lg text-[10px] font-bold transition ${open ? 'bg-teal-500 text-slate-950' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'}">
                                             ${open ? '🔓 열림' : '🔒 잠김'}
                                         </button>
@@ -727,17 +714,25 @@
             `;
         }
 
-        // --- 🔍 모니터링할 차시만 선택하는 함수 ---
         function selectTeacherRound(r) {
             state.selectedRound = r;
             render();
         }
 
-        // --- 🔒 차시 잠금 및 해제 토글 함수 (독립 작동) ---
         function toggleRoundLock(r) {
             if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
+            // 명확하게 반전
             state.dbData.unlockedRounds[r-1] = !state.dbData.unlockedRounds[r-1];
             pushDb();
+        }
+
+        // 🔒 [추가] 2~5차시를 한 번에 다 잠그고 1차시만 열어주는 긴급 초기화 버튼 기능
+        function resetAllLocks() {
+            if (confirm("1차시만 남기고 2~5차시를 모두 잠금 상태로 초기화하시겠습니까?")) {
+                state.dbData.unlockedRounds = [true, false, false, false, false];
+                pushDb();
+                alert("초기화 완료! 2~5차시가 모두 잠겼습니다.");
+            }
         }
 
         function deleteStudent(num, name) {
