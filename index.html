@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (최종 안정화본)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (교사 모니터링 랭킹 추가)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,7 +51,7 @@
             student: null,
             activeTab: 'draw',
             selectedRound: 1,
-            rankCategory: 'total',
+            teacherSubTab: 'monitor', // 'monitor' 또는 'rank' (관리자 내부 탭)
             selectedAvatar: 'cat',
             dbData: { classes: {}, unlockedRounds: [true, false, false, false, false], teacherPwd: "0000" }
         };
@@ -67,7 +67,6 @@
                     }
                     if (!state.dbData.teacherPwd) state.dbData.teacherPwd = "0000";
 
-                    // 만약 학생이 로그인한 상태라면 서버 데이터 갱신에 맞춰 student 객체도 최신 상태로 동기화
                     if (state.student && state.dbData.classes[state.selectedClass]) {
                         const updatedCur = state.dbData.classes[state.selectedClass].find(s => Number(s.number) === Number(state.student.number));
                         if (updatedCur) {
@@ -655,9 +654,6 @@
         }
 
         function renderTeacherMain() {
-            let classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
-            classStudents.sort((a, b) => Number(a.number) - Number(b.number));
-
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
 
             return `
@@ -674,7 +670,29 @@
                         </div>
                     </div>
 
-                    <!-- 🛠️ 차시 제어 바 -->
+                    <!-- 🛠️ 관리자 모드 내부 탭 전환 (모니터링 ⇄ 전체 랭킹) -->
+                    <div class="grid grid-cols-2 p-3 bg-slate-900 border-b border-slate-800 gap-2">
+                        <button onclick="state.teacherSubTab='monitor'; render();" class="py-2.5 rounded-xl text-xs font-bold transition ${state.teacherSubTab==='monitor'?'bg-teal-500 text-slate-950 shadow':'bg-slate-800 text-slate-400'}">
+                            📋 학생 제출 및 차시 관리
+                        </button>
+                        <button onclick="state.teacherSubTab='rank'; render();" class="py-2.5 rounded-xl text-xs font-bold transition ${state.teacherSubTab==='rank'?'bg-teal-500 text-slate-950 shadow':'bg-slate-800 text-slate-400'}">
+                            🏆 전교생 종합 랭킹 보기
+                        </button>
+                    </div>
+
+                    ${state.teacherSubTab === 'rank' ? renderTeacherRankView() : renderTeacherMonitorView(unlockedRounds)}
+                </div>
+            `;
+        }
+
+        // --- 관리자 모드: 학생 제출 모니터링 뷰 ---
+        function renderTeacherMonitorView(unlockedRounds) {
+            let classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
+            classStudents.sort((a, b) => Number(a.number) - Number(b.number));
+
+            return `
+                <div class="flex flex-col flex-grow overflow-hidden">
+                    <!-- 차시 제어 바 -->
                     <div class="p-3 bg-slate-900/90 border-b border-slate-800 space-y-2">
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-teal-400 font-bold">📌 모니터링 중: [ ${state.selectedRound}차시 ]</span>
@@ -730,6 +748,74 @@
                                             🗑️ 삭제
                                         </button>
                                     </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 관리자 모드: 전교생 랭킹 보기 뷰 ---
+        function renderTeacherRankView() {
+            let list = [];
+            const classes = state.dbData.classes || {};
+            for (let c = 1; c <= 9; c++) {
+                const stds = classes[c] || [];
+                stds.forEach(s => {
+                    if (s.rounds) {
+                        let totalScoreAllRounds = 0;
+                        let hasApprovedRound = false;
+
+                        for (let r = 1; r <= 5; r++) {
+                            const rKey = 'round_' + r;
+                            const rData = s.rounds[rKey];
+                            if (rData && rData.approved) {
+                                hasApprovedRound = true;
+                                const validD = rData.records.draw.filter(v => v >= 0);
+                                const validG = rData.records.guard.filter(v => v >= 0);
+                                const validT = rData.records.takeout.filter(v => v >= 0);
+
+                                const maxD = validD.length > 0 ? Math.min(4, Math.max(...validD)) : 0;
+                                const maxG = validG.length > 0 ? Math.min(4, Math.max(...validG)) : 0;
+                                const maxT = validT.length > 0 ? Math.min(3, Math.max(...validT)) : 0;
+
+                                totalScoreAllRounds += (calcDrawScore(maxD) + calcGuardScore(maxG) + calcTakeoutScore(maxT));
+                            }
+                        }
+
+                        if (hasApprovedRound) {
+                            const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
+                            list.push({
+                                c, number: s.number, name: s.name, avatarIcon: avObj.icon,
+                                totalScore: totalScoreAllRounds
+                            });
+                        }
+                    }
+                });
+            }
+
+            list.sort((a,b) => b.totalScore - a.totalScore);
+
+            return `
+                <div class="p-4 flex-grow overflow-y-auto space-y-3">
+                    <div class="text-center py-2">
+                        <h3 class="text-sm font-bold text-slate-100 tracking-tight">🏆 교사 전용 전체 누적 랭킹</h3>
+                        <p class="text-[10px] text-slate-400 mt-0.5">선생님 승인이 완료된 기록을 바탕으로 집계됩니다.</p>
+                    </div>
+
+                    <div class="space-y-2">
+                        ${list.length === 0 ? '<div class="text-center py-16 text-xs text-slate-500">아직 선생님 승인이 완료된 학생 기록이 없습니다.</div>' : ''}
+                        ${list.map((st, i) => {
+                            return `
+                                <div class="bg-slate-900 p-3.5 rounded-xl flex justify-between items-center border border-slate-800 shadow-sm">
+                                    <div class="flex items-center space-x-3">
+                                        <span class="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${i===0?'bg-amber-400 text-slate-950':i===1?'bg-slate-300 text-slate-800':i===2?'bg-amber-700 text-white':'bg-slate-800 text-slate-400'}">
+                                            ${i+1}
+                                        </span>
+                                        <span class="font-medium text-xs text-slate-200">${st.avatarIcon} 1-${st.c} ${st.number}번 ${st.name}</span>
+                                    </div>
+                                    <span class="font-bold text-sm text-teal-400">${st.totalScore}점</span>
                                 </div>
                             `;
                         }).join('')}
