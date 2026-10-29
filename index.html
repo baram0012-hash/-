@@ -33,7 +33,7 @@
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
             // --- [수정 포인트 2] 다른 선생님과 겹치지 않게 선생님만의 고유한 방 이름(영단어)을 적어주세요! ---
-            dbRef = firebase.database().ref('teacher_room_my_unique_name');
+            dbRef = firebase.database().ref('UGCH floor curling');
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
         }
