@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금/해제 완벽)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 수정본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <!-- Firebase SDK (실시간 데이터 연동) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -32,7 +32,6 @@
         let dbRef = null;
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            // 💡 선생님만의 고유 방 이름 (아까 쓰시던 것 유지!)
             dbRef = firebase.database().ref('UGCH floor curling');
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
@@ -77,7 +76,6 @@
             render();
         }
 
-        // --- 공통 점수 계산 공식 완벽 통일 ---
         function calcDrawScore(c) {
             if (c < 0) return 0;
             const capped = Math.min(4, c);
@@ -663,21 +661,27 @@
                         </div>
                     </div>
 
-                    <!-- 🛠️ 차시 잠금 및 해제 완벽 토글 바 -->
+                    <!-- 🛠️ 차시 제어 바 (클릭시 잠금/해제 토글 + 모니터링 선택 분리) -->
                     <div class="p-3 bg-slate-900/90 border-b border-slate-800 space-y-2">
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-teal-400 font-bold">📌 모니터링 중: [ ${state.selectedRound}차시 ]</span>
-                            <span class="text-[10px] text-slate-400">버튼 클릭시 차시 [열림 ⇄ 잠김] 토글</span>
+                            <span class="text-[10px] text-slate-400">버튼 <b class="text-amber-400">더블클릭(또는 연타)</b>시 잠금/해제 토글</span>
                         </div>
                         <div class="grid grid-cols-5 gap-1.5">
                             ${[1,2,3,4,5].map(r => {
                                 const open = unlockedRounds[r-1];
                                 const isSelected = state.selectedRound === r;
                                 return `
-                                    <button onclick="toggleRoundLock(${r})" class="py-2 rounded-lg text-xs font-bold transition flex flex-col items-center justify-center ${isSelected ? 'ring-2 ring-white ' : ''}${open ? 'bg-teal-500 text-slate-950 shadow' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
-                                        <span>${r}차시</span>
-                                        <span class="text-[9px] mt-0.5">${open ? '열림🔓' : '잠김🔒'}</span>
-                                    </button>
+                                    <div class="flex flex-col space-y-1">
+                                        <!-- 차시 선택 버튼 -->
+                                        <button onclick="selectTeacherRound(${r})" class="w-full py-1.5 rounded-t-lg text-xs font-bold transition ${isSelected ? 'bg-amber-400 text-slate-950 shadow' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
+                                            ${r}차시조회
+                                        </button>
+                                        <!-- 잠금/해제 토글 버튼 -->
+                                        <button onclick="toggleRoundLock(${r})" class="w-full py-1 rounded-b-lg text-[10px] font-bold transition ${open ? 'bg-teal-500 text-slate-950' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'}">
+                                            ${open ? '🔓 열림' : '🔒 잠김'}
+                                        </button>
+                                    </div>
                                 `;
                             }).join('')}
                         </div>
@@ -723,13 +727,16 @@
             `;
         }
 
-        // --- 🔒 차시 잠금 및 해제 토글 함수 (클릭 시 상태 반전) ---
+        // --- 🔍 모니터링할 차시만 선택하는 함수 ---
+        function selectTeacherRound(r) {
+            state.selectedRound = r;
+            render();
+        }
+
+        // --- 🔒 차시 잠금 및 해제 토글 함수 (독립 작동) ---
         function toggleRoundLock(r) {
             if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
-            // 현재 상태의 반대로 변경 (열림 ⇄ 잠김)
             state.dbData.unlockedRounds[r-1] = !state.dbData.unlockedRounds[r-1];
-            // 해당 차시를 모니터링 대상으로도 동시 선택
-            state.selectedRound = r;
             pushDb();
         }
 
