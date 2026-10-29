@@ -7,7 +7,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <!-- Firebase SDK (실시간 데이터 연동) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -24,16 +24,16 @@
     <div id="app" class="w-full max-w-md bg-white min-h-screen shadow-2xl flex flex-col relative border-x border-slate-100"></div>
 
     <script>
-        // --- Firebase 실시간 서버 연동 설정 ---
+        // --- [수정 포인트 1] 본인의 파이어베이스 데이터베이스 URL 주소를 여기에 넣으세요! ---
         const firebaseConfig = {
-            databaseURL: "https://floor-curling-live-default-rtdb.asia-southeast1.firebasedatabase.app"
+            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
         
         let dbRef = null;
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            // 💡 선생님만의 방 이름
-            dbRef = firebase.database().ref('teacher_room_hong');
+            // --- [수정 포인트 2] 다른 선생님과 겹치지 않게 선생님만의 고유한 방 이름(영단어)을 적어주세요! ---
+            dbRef = firebase.database().ref('teacher_room_my_unique_name');
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
         }
@@ -47,7 +47,7 @@
         ];
 
         const state = {
-            view: 'login', // login, student_main, teacher_main
+            view: 'login',
             selectedClass: 1,
             student: null,
             activeTab: 'draw',
@@ -57,7 +57,6 @@
             dbData: { classes: {}, unlockedRounds: [true, false, false, false, false], teacherPwd: "0000" }
         };
 
-        // --- ⚡ 다른 기기 실시간 수신 리스너 ---
         if (dbRef) {
             dbRef.on('value', (snapshot) => {
                 const data = snapshot.val();
@@ -114,7 +113,6 @@
         }
 
         function renderLogin() {
-            // 학생 목록 불러온 후 번호순 자동 정렬
             let classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             classStudents.sort((a, b) => Number(a.number) - Number(b.number));
 
@@ -244,7 +242,6 @@
                 student.avatar = avatar;
             }
 
-            // 추가 후 항상 번호순 오름차순 정렬
             classStudents.sort((a, b) => Number(a.number) - Number(b.number));
 
             state.student = student;
@@ -630,7 +627,6 @@
 
         function renderTeacherMain() {
             let classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
-            // 💡 교사 관리자 화면에서 학생 목록을 무조건 번호 오름차순(1번~30번)으로 완전 자동 정렬!
             classStudents.sort((a, b) => Number(a.number) - Number(b.number));
 
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
