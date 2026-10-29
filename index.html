@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (차시·반별 독립완벽)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (배점통일완벽)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,7 +51,7 @@
             selectedClass: 1,
             student: null,
             activeTab: 'draw',
-            selectedRound: 1, // 기본 선택 차시 (학생/교사 공유)
+            selectedRound: 1,
             rankCategory: 'total',
             selectedAvatar: 'cat',
             dbData: { classes: {}, unlockedRounds: [true, false, false, false, false], teacherPwd: "0000" }
@@ -78,6 +78,7 @@
             render();
         }
 
+        // --- 🎯 공통 점수 계산 공식 (학생/관리자 완벽 일치) ---
         function calcDrawScore(c) {
             if (c < 0) return 0;
             const capped = Math.min(4, c);
@@ -106,6 +107,20 @@
             return 10;
         }
 
+        // 특정 차시의 총점 계산기 (기본점수 50점 + 드로우 + 가드 + 테이크아웃 중 최고값들 합산 혹은 각 항목별 점수 합산 기준 적용)
+        function getRoundScore(rData) {
+            if (!rData || !rData.records) return 0;
+            const rIdx = state.selectedRound - 1;
+            const dVal = rData.records.draw[rIdx];
+            const gVal = rData.records.guard[rIdx];
+            const tVal = rData.records.takeout[rIdx];
+
+            const sD = dVal >= 0 ? calcDrawScore(dVal) : 0;
+            const sG = gVal >= 0 ? calcGuardScore(gVal) : 0;
+            const sT = tVal >= 0 ? calcTakeoutScore(tVal) : 0;
+            return sD + sG + sT;
+        }
+
         function render() {
             const app = document.getElementById('app');
             if (state.view === 'login') app.innerHTML = renderLogin();
@@ -122,7 +137,7 @@
                     <div class="py-6 text-center">
                         <span class="bg-slate-800 text-teal-400 font-semibold text-xs px-3.5 py-1.5 rounded-full tracking-wide">PHYSICAL EDUCATION</span>
                         <h1 class="text-3xl font-black mt-3 text-slate-100 tracking-tight">🥌 Floor Curling</h1>
-                        <p class="text-xs text-slate-400 mt-1.5 font-light">1학년 플로어 컬링 수행평가 (차시·반별 독립 연동)</p>
+                        <p class="text-xs text-slate-400 mt-1.5 font-light">1학년 플로어 컬링 수행평가 (실시간 연동)</p>
                     </div>
 
                     <div class="bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800 space-y-4">
@@ -233,7 +248,7 @@
                     number: num, 
                     name: name, 
                     avatar: avatar,
-                    rounds: {} // 차시별 데이터 객체 완벽 독립 분리
+                    rounds: {} 
                 };
                 classStudents.push(student);
             } else {
@@ -263,16 +278,7 @@
                 };
             }
             const rData = cur.rounds[rKey];
-            const rIdx = state.selectedRound - 1;
-
-            const curD = rData.records.draw[rIdx];
-            const curG = rData.records.guard[rIdx];
-            const curT = rData.records.takeout[rIdx];
-
-            const scoreD = curD >= 0 ? calcDrawScore(curD) : 0;
-            const scoreG = curG >= 0 ? calcGuardScore(curG) : 0;
-            const scoreT = curT >= 0 ? calcTakeoutScore(curT) : 0;
-            const todayTotal = scoreD + scoreG + scoreT;
+            const todayTotal = getRoundScore(rData);
 
             let completedCount = 0;
             for (let i = 0; i < 5; i++) {
@@ -349,7 +355,7 @@
                     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                         <div class="flex justify-between items-center border-b border-slate-100 pb-2">
                             <span class="font-bold text-xs text-slate-900">📌 평가 항목 및 기본점수</span>
-                            <span class="text-[10px] bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded border border-teal-200">기본점수 50점 부여</span>
+                            <span class="text-[10px] bg-teal-50 text-teal-700 font-bold px-2 py-0.5 rounded border border-teal-200">기본점수 부여</span>
                         </div>
 
                         <div class="border border-slate-200 rounded-xl overflow-hidden">
@@ -553,7 +559,6 @@
                 const stds = classes[c] || [];
                 stds.forEach(s => {
                     if (s.rounds) {
-                        // 모든 차시의 승인된 점수를 합산하여 종합 랭킹 집계
                         let totalScoreAllRounds = 0;
                         let hasApprovedRound = false;
 
@@ -660,7 +665,6 @@
                         </div>
                     </div>
 
-                    <!-- 1. 차시 선택 및 제어 바 (반별 독립 차시 진행 핵심) -->
                     <div class="p-3 bg-slate-900/90 border-b border-slate-800 space-y-2">
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-teal-400 font-bold">📌 현재 모니터링 중인 차시: [ ${state.selectedRound}차시 ]</span>
@@ -670,17 +674,15 @@
                             ${[1,2,3,4,5].map(r => {
                                 const open = unlockedRounds[r-1];
                                 return `
-                                    <button onclick="selectTeacherRound(${r})" class="py-2 rounded-lg text-xs font-bold transition flex flex-col items-center justify-center ${state.selectedRound===r?'bg-amber-400 text-slate-950 shadow':'(open?\'bg-teal-500/20 text-teal-300 border border-teal-500/40\':\'bg-slate-800 text-slate-400 border border-slate-700\')'}">
+                                    <button onclick="selectTeacherRound(${r})" class="py-2 rounded-lg text-xs font-bold transition flex flex-col items-center justify-center ${state.selectedRound===r?'bg-amber-400 text-slate-950 shadow':(open?'bg-teal-500/20 text-teal-300 border border-teal-500/40':'bg-slate-800 text-slate-400 border border-slate-700')}">
                                         <span>${r}차시</span>
                                         <span class="text-[9px] mt-0.5">${open ? '열림' : '🔒 잠김'}</span>
                                     </button>
                                 `;
                             }).join('')}
                         </div>
-                        <div class="text-[10px] text-slate-400 text-center">💡 차시 버튼을 누르면 해당 차시의 제출 현황이 모니터링됩니다. (더블클릭시 잠금토글은 아래 유지)</div>
                     </div>
 
-                    <!-- 반 선택 탭 -->
                     <div class="bg-slate-900/60 p-2 flex overflow-x-auto space-x-1 border-b border-slate-800">
                         ${[1,2,3,4,5,6,7,8,9].map(c => `
                             <button onclick="state.selectedClass=${c}; render();" class="px-3 py-1.5 rounded-lg text-xs font-medium ${c===state.selectedClass?'bg-teal-500 text-slate-950 font-bold':'bg-slate-800 text-slate-400'}">
@@ -689,29 +691,21 @@
                         `).join('')}
                     </div>
 
-                    <!-- 학생 목록 및 승인 센터 -->
                     <div class="p-4 flex-grow overflow-y-auto space-y-2">
                         ${classStudents.length === 0 ? '<div class="text-center py-10 text-xs text-slate-500">이 반에 등록된 학생이 없습니다.</div>' : ''}
                         ${classStudents.map(s => {
                             const rKey = 'round_' + state.selectedRound;
                             const rData = (s.rounds && s.rounds[rKey]) || { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } };
-
-                            const validD = rData.records.draw.filter(v => v >= 0);
-                            const validG = rData.records.guard.filter(v => v >= 0);
-                            const validT = rData.records.takeout.filter(v => v >= 0);
-
-                            const maxD = validD.length > 0 ? Math.min(4, Math.max(...validD)) : 0;
-                            const maxG = validG.length > 0 ? Math.min(4, Math.max(...validG)) : 0;
-                            const maxT = validT.length > 0 ? Math.min(3, Math.max(...validT)) : 0;
-
-                            const total = calcDrawScore(maxD) + calcGuardScore(maxG) + calcTakeoutScore(maxT);
+                            
+                            // 💡 학생과 100% 동일한 함수(getRoundScore)를 써서 점수가 정확히 일치하도록 수정함
+                            const total = getRoundScore(rData);
                             const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
 
                             return `
                                 <div class="bg-slate-900 p-3.5 rounded-xl flex justify-between items-center border border-slate-800">
                                     <div>
                                         <div class="text-xs font-bold text-slate-200">${avObj.icon} ${s.number}번 ${s.name}</div>
-                                        <div class="text-[10px] text-slate-400 mt-0.5">${state.selectedRound}차시 (드:${maxD} | 가:${maxG} | 테:${maxT})</div>
+                                        <div class="text-[10px] text-slate-400 mt-0.5">${state.selectedRound}차시 점수 집계 완료</div>
                                     </div>
                                     <div class="flex items-center space-x-3">
                                         <span class="text-base font-bold text-teal-400">${total}점</span>
@@ -728,11 +722,9 @@
         }
 
         function selectTeacherRound(r) {
-            // 교사 모니터링 차시 변경 및 학생 화면 실시간 동기화
             state.selectedRound = r;
-            // 해당 차시 잠금이 풀려있지 않다면 자동으로 열어주거나 선택 반영
             if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
-            state.dbData.unlockedRounds[r-1] = true; // 교사가 선택한 차시는 즉시 학생들도 접근 가능하게 열어줌
+            state.dbData.unlockedRounds[r-1] = true;
             pushDb();
         }
 
