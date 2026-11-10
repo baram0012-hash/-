@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (완벽 오류 수리본)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (최종 최적화본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,13 +26,13 @@
     <script>
         // --- 💡 파이어베이스 연결 설정 ---
         const firebaseConfig = {
-            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app/"
+            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
         
         let dbRef = null;
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            dbRef = firebase.database().ref('UGCH floor curling'); // 👈 기존 노드 이름
+            dbRef = firebase.database().ref('UGCH floor curling'); // 👈 기존 노드 이름 확인
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
         }
@@ -48,9 +48,9 @@
         const state = {
             view: 'login',
             selectedClass: 1,
-            teacherRankClass: 0,       // 0: 전교 누적, 1~9: 해당 반 누적
-            teacherRoundRankClass: 1,  // 교사 차시별 반별 랭킹용 학급
-            teacherRankMode: 'total',  // 'total' (누적), 'round' (차시별 반별)
+            teacherRankClass: 0,       
+            teacherRoundRankClass: 1,  
+            teacherRankMode: 'total',  
             student: null,
             activeTab: 'draw',
             selectedRound: 1,
@@ -69,23 +69,16 @@
                         state.dbData.unlockedRounds = [true, false, false, false, false];
                     }
                     if (!state.dbData.teacherPwd) state.dbData.teacherPwd = "0000";
-
-                    if (state.student && state.dbData.classes[state.selectedClass]) {
-                        const updatedCur = state.dbData.classes[state.selectedClass].find(s => Number(s.number) === Number(state.student.number));
-                        if (updatedCur) {
-                            state.student = updatedCur;
-                        }
-                    }
                 }
                 render();
             });
         }
 
+        // DB로 전송만 수행 (이중 렌더링 렉 원인 제거)
         function pushDb() {
             if (dbRef) {
                 dbRef.set(state.dbData);
             }
-            render();
         }
 
         function calcDrawScore(c) {
@@ -120,9 +113,9 @@
         function getRoundScore(rData, rIdx) {
             if (!rData || !rData.records) return 0;
             
-            const dVal = rData.records.draw[rIdx];
-            const gVal = rData.records.guard[rIdx];
-            const tVal = rData.records.takeout[rIdx];
+            const dVal = rData.records.draw ? rData.records.draw[rIdx] : -1;
+            const gVal = rData.records.guard ? rData.records.guard[rIdx] : -1;
+            const tVal = rData.records.takeout ? rData.records.takeout[rIdx] : -1;
 
             const sD = dVal >= 0 ? calcDrawScore(dVal) : 0;
             const sG = gVal >= 0 ? calcGuardScore(gVal) : 0;
@@ -133,6 +126,7 @@
 
         function render() {
             const app = document.getElementById('app');
+            if (!app) return;
             if (state.view === 'login') app.innerHTML = renderLogin();
             else if (state.view === 'student_main') app.innerHTML = renderStudentMain();
             else if (state.view === 'teacher_main') app.innerHTML = renderTeacherMain();
@@ -206,6 +200,7 @@
 
         function changeClass(val) {
             state.selectedClass = Number(val);
+            render();
         }
 
         function selectAvatarIcon(avId) {
@@ -705,6 +700,7 @@
             rData.submitted = false;
             rData.approved = false;
             pushDb();
+            render();
         }
 
         function renderTeacherMain() {
@@ -719,7 +715,7 @@
                         </div>
                         <div class="flex space-x-1">
                             <button onclick="resetAllLocks()" class="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-1 rounded-lg font-bold">🔒 전체 잠금</button>
-                            <button onclick="pushDb()" class="text-xs bg-teal-500 text-slate-950 px-2.5 py-1.5 rounded-lg font-bold">🔄 새로고침</button>
+                            <button onclick="pushDb(); render();" class="text-xs bg-teal-500 text-slate-950 px-2.5 py-1.5 rounded-lg font-bold">🔄 새로고침</button>
                             <button onclick="state.view='login'; render();" class="text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700">로그아웃</button>
                         </div>
                     </div>
@@ -789,9 +785,9 @@
                             const total = getRoundScore(rData, rIdx);
                             const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
 
-                            const dVal = rData.records.draw[rIdx];
-                            const gVal = rData.records.guard[rIdx];
-                            const tVal = rData.records.takeout[rIdx];
+                            const dVal = rData.records.draw ? rData.records.draw[rIdx] : -1;
+                            const gVal = rData.records.guard ? rData.records.guard[rIdx] : -1;
+                            const tVal = rData.records.takeout ? rData.records.takeout[rIdx] : -1;
 
                             return `
                                 <div class="bg-slate-900 p-3.5 rounded-xl flex flex-col space-y-2.5 border border-slate-800">
@@ -860,10 +856,10 @@
                 rData.records[category][rIdx] = parsed;
                 rData.approved = true;
                 pushDb();
+                render();
             }
         }
 
-        // --- 🏆 교사 랭킹 센터 (버그 완전 수정본) ---
         function renderTeacherRankView() {
             const classes = state.dbData.classes || {};
 
@@ -1037,12 +1033,14 @@
             if (!state.dbData.unlockedRounds) state.dbData.unlockedRounds = [true, false, false, false, false];
             state.dbData.unlockedRounds[r-1] = !state.dbData.unlockedRounds[r-1];
             pushDb();
+            render();
         }
 
         function resetAllLocks() {
             if (confirm("1차시만 남기고 2~5차시를 모두 잠금 상태로 초기화하시겠습니까?")) {
                 state.dbData.unlockedRounds = [true, false, false, false, false];
                 pushDb();
+                render();
                 alert("초기화 완료! 2~5차시가 모두 잠겼습니다.");
             }
         }
@@ -1053,6 +1051,7 @@
                 let classStudents = state.dbData.classes[state.selectedClass] || [];
                 state.dbData.classes[state.selectedClass] = classStudents.filter(s => Number(s.number) !== Number(num));
                 pushDb();
+                render();
                 alert(`${num}번 ${name} 학생 데이터가 성공적으로 삭제되었습니다.`);
             }
         }
@@ -1065,6 +1064,7 @@
                 if (newPwd && newPwd.trim() !== "") {
                     state.dbData.teacherPwd = newPwd.trim();
                     pushDb();
+                    render();
                     alert("비밀번호가 변경되었습니다!");
                 }
             } else if (inputOld !== null) {
@@ -1080,6 +1080,7 @@
                 if (student.rounds && student.rounds[rKey]) {
                     student.rounds[rKey].approved = !student.rounds[rKey].approved;
                     pushDb();
+                    render();
                 }
             }
         }
