@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (교사 차시별 반별 랭킹 추가)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (완벽 오류 수리본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,7 +24,7 @@
     <div id="app" class="w-full max-w-md bg-white min-h-screen shadow-2xl flex flex-col relative border-x border-slate-100"></div>
 
     <script>
-        // --- 💡 파이어베이스 연결 설정 (기존에 쓰시던 주소와 노드 이름을 반드시 확인하세요!) ---
+        // --- 💡 파이어베이스 연결 설정 ---
         const firebaseConfig = {
             databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
@@ -32,7 +32,7 @@
         let dbRef = null;
         try {
             if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            dbRef = firebase.database().ref('UGCH floor curling'); // 👈 기존에 쓰시던 데이터베이스 이름 확인!
+            dbRef = firebase.database().ref('UGCH floor curling'); // 👈 기존 노드 이름
         } catch (e) {
             console.error("Firebase 연결 실패:", e);
         }
@@ -48,9 +48,9 @@
         const state = {
             view: 'login',
             selectedClass: 1,
-            teacherRankClass: 0,   // 교사 랭킹 필터 (0: 전교 누적, 1~9: 해당 반 누적)
-            teacherRoundRankClass: 1, // 교사 차시별 반별 랭킹 조회용 반 선택 (1~9반)
-            teacherRankMode: 'total', // 'total' (누적 랭킹), 'round' (차시별 반별 랭킹)
+            teacherRankClass: 0,       // 0: 전교 누적, 1~9: 해당 반 누적
+            teacherRoundRankClass: 1,  // 교사 차시별 반별 랭킹용 학급
+            teacherRankMode: 'total',  // 'total' (누적), 'round' (차시별 반별)
             student: null,
             activeTab: 'draw',
             selectedRound: 1,
@@ -863,20 +863,18 @@
             }
         }
 
-        // --- 🏆 관리자 모드: 교사 랭킹 센터 (누적 랭킹 + 새로 추가된 차시별 반별 랭킹) ---
+        // --- 🏆 교사 랭킹 센터 (버그 완전 수정본) ---
         function renderTeacherRankView() {
-            let list = [];
             const classes = state.dbData.classes || {};
 
             return `
                 <div class="flex flex-col flex-grow overflow-hidden">
-                    <!-- 상단 모드 전환 탭 (누적 랭킹 vs 차시별 반별 랭킹) -->
                     <div class="grid grid-cols-2 p-2 bg-slate-900 border-b border-slate-800 gap-1.5">
                         <button onclick="state.teacherRankMode='total'; render();" class="py-2 rounded-lg text-xs font-bold transition ${state.teacherRankMode==='total'?'bg-amber-400 text-slate-950':'bg-slate-800 text-slate-400'}">
                             🏆 학급/전교 누적 랭킹
                         </button>
                         <button onclick="state.teacherRankMode='round'; render();" class="py-2 rounded-lg text-xs font-bold transition ${state.teacherRankMode==='round'?'bg-sky-400 text-slate-950':'bg-slate-800 text-slate-400'}">
-                            🏫 차시별 반별 랭킹 (NEW)
+                            🏫 차시별 반별 랭킹
                         </button>
                     </div>
 
@@ -885,8 +883,8 @@
             `;
         }
 
-        // 1. 기존 누적 랭킹 뷰
         function renderTeacherTotalRank(classes) {
+            let rankList = [];
             const targetClasses = state.teacherRankClass === 0 ? [1,2,3,4,5,6,7,8,9] : [state.teacherRankClass];
 
             targetClasses.forEach(c => {
@@ -907,7 +905,7 @@
 
                         if (hasApprovedRound) {
                             const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
-                            list.push({
+                            rankList.push({
                                 c, number: s.number, name: s.name, avatarIcon: avObj.icon,
                                 totalScore: totalScoreAllRounds
                             });
@@ -916,7 +914,7 @@
                 });
             });
 
-            list.sort((a,b) => b.totalScore - a.totalScore);
+            rankList.sort((a,b) => b.totalScore - a.totalScore);
 
             return `
                 <div class="flex flex-col flex-grow overflow-hidden">
@@ -940,8 +938,8 @@
                         </div>
 
                         <div class="space-y-2">
-                            ${list.length === 0 ? `<div class="text-center py-16 text-xs text-slate-500">승인된 기록이 없습니다.</div>` : ''}
-                            ${list.map((st, i) => {
+                            ${rankList.length === 0 ? `<div class="text-center py-16 text-xs text-slate-500">승인된 기록이 없습니다.</div>` : ''}
+                            ${rankList.map((st, i) => {
                                 return `
                                     <div class="bg-slate-900 p-3.5 rounded-xl flex justify-between items-center border border-slate-800 shadow-sm">
                                         <div class="flex items-center space-x-3">
@@ -960,8 +958,8 @@
             `;
         }
 
-        // 2. [NEW] 교사가 특정 반, 특정 차시의 반별 랭킹을 바로 조회하는 뷰
         function renderTeacherRoundClassRank(classes) {
+            let roundList = [];
             const rNum = state.selectedRound;
             const cNum = state.teacherRoundRankClass;
             const stds = classes[cNum] || [];
@@ -973,18 +971,17 @@
                     if (rData && (rData.approved || rData.submitted)) {
                         const roundScore = getRoundScore(rData, rNum - 1);
                         const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
-                        list.push({
+                        roundList.push({
                             number: s.number, name: s.name, avatarIcon: avObj.icon, score: roundScore
                         });
                     }
                 }
             });
 
-            list.sort((a,b) => b.score - a.score);
+            roundList.sort((a,b) => b.score - a.score);
 
             return `
                 <div class="flex flex-col flex-grow overflow-hidden">
-                    <!-- 차시 선택 버튼 -->
                     <div class="bg-slate-900/90 p-2.5 border-b border-slate-800 flex items-center justify-between">
                         <span class="text-xs text-sky-400 font-bold">조회 차시:</span>
                         <div class="grid grid-cols-5 gap-1 flex-grow ml-2">
@@ -996,7 +993,6 @@
                         </div>
                     </div>
 
-                    <!-- 학급 선택 버튼 (1~9반) -->
                     <div class="bg-slate-900/80 p-2 flex overflow-x-auto space-x-1 border-b border-slate-800">
                         ${[1,2,3,4,5,6,7,8,9].map(c => `
                             <button onclick="state.teacherRoundRankClass=${c}; render();" class="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${c===state.teacherRoundRankClass?'bg-sky-400 text-slate-950 font-bold':'bg-slate-800 text-slate-400'}">
@@ -1012,8 +1008,8 @@
                         </div>
 
                         <div class="space-y-2">
-                            ${list.length === 0 ? `<div class="text-center py-16 text-xs text-slate-500">1-${cNum}반의 ${rNum}차시 제출/승인 기록이 없습니다.</div>` : ''}
-                            ${list.map((st, i) => {
+                            ${roundList.length === 0 ? `<div class="text-center py-16 text-xs text-slate-500">1-${cNum}반의 ${rNum}차시 제출/승인 기록이 없습니다.</div>` : ''}
+                            ${roundList.map((st, i) => {
                                 return `
                                     <div class="bg-slate-900 p-3.5 rounded-xl flex justify-between items-center border border-slate-800 shadow-sm">
                                         <div class="flex items-center space-x-3">
