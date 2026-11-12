@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (교사 차시 제어 복구 완료본)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (관리자 설정 탭 버튼 복구 완료)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,7 +26,7 @@
     <script>
         // --- 💡 파이어베이스 연결 설정 ---
         const firebaseConfig = {
-            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app/"
+            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
         
         let dbRef = null;
@@ -68,7 +68,7 @@
                     if (data.unlockedRounds && Array.isArray(data.unlockedRounds)) {
                         state.dbData.unlockedRounds = data.unlockedRounds;
                         
-                        // 🌟 [수정] 교사 모드일 때는 강제 이동하지 않고, 학생(student_main)일 때만 잠긴 차시 접근 시 열린 차시로 이동
+                        // 학생 모드일 때만 잠긴 차시 접근 시 열린 차시로 자동 이동
                         if (state.view === 'student_main') {
                             const rIdx = state.selectedRound - 1;
                             if (!state.dbData.unlockedRounds[rIdx]) {
@@ -261,7 +261,7 @@
             const inputPwd = prompt("선생님 전용 비밀번호를 입력하세요. (기본: 0000)");
             if (inputPwd === currentPwd) {
                 state.view = 'teacher_main';
-                state.teacherSubTab = 'monitor';
+                state.teacherSubTab = 'settings'; // 진입 시 설정 탭이 바로 보이도록 설정
                 render();
             } else if (inputPwd !== null) {
                 alert("비밀번호가 일치하지 않습니다!");
@@ -311,7 +311,6 @@
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             const cur = classStudents.find(s => Number(s.number) === Number(state.student.number)) || state.student;
             
-            // 🔒 학생 화면일 때만 잠긴 차시 접근 시 열린 차시로 이동
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
             if (!unlockedRounds[rIdx]) {
@@ -824,12 +823,13 @@
                         </button>
                     </div>
 
-                    <div class="flex bg-slate-800 p-1 rounded-xl text-xs font-semibold text-center border border-slate-700 overflow-x-auto">
-                        <button onclick="state.teacherSubTab='monitor'; render();" class="flex-1 py-2 px-2 rounded-lg transition min-w-[70px] ${state.teacherSubTab==='monitor'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">📋 모니터링</button>
-                        <button onclick="state.teacherSubTab='classRank'; render();" class="flex-1 py-2 px-2 rounded-lg transition min-w-[80px] ${state.teacherSubTab==='classRank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">🏫 반별누적조회</button>
-                        <button onclick="state.teacherSubTab='roundRank'; render();" class="flex-1 py-2 px-2 rounded-lg transition min-w-[80px] ${state.teacherSubTab==='roundRank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">🏫 반별차시순위</button>
-                        <button onclick="state.teacherSubTab='totalRank'; render();" class="flex-1 py-2 px-2 rounded-lg transition min-w-[80px] ${state.teacherSubTab==='totalRank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">🏆 전교생랭킹</button>
-                        <button onclick="state.teacherSubTab='settings'; render();" class="flex-1 py-2 px-2 rounded-lg transition min-w-[50px] ${state.teacherSubTab==='settings'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">⚙️ 설정</button>
+                    <!-- 🌟 관리자 상단 메뉴바에 [⚙️ 설정] 탭 명확히 추가 -->
+                    <div class="grid grid-cols-5 gap-1 bg-slate-800 p-1 rounded-xl text-[11px] font-semibold text-center border border-slate-700">
+                        <button onclick="state.teacherSubTab='monitor'; render();" class="py-2.5 px-1 rounded-lg transition ${state.teacherSubTab==='monitor'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">📋 모니터링</button>
+                        <button onclick="state.teacherSubTab='classRank'; render();" class="py-2.5 px-1 rounded-lg transition ${state.teacherSubTab==='classRank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">🏫 반별누적</button>
+                        <button onclick="state.teacherSubTab='roundRank'; render();" class="py-2.5 px-1 rounded-lg transition ${state.teacherSubTab==='roundRank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">🏫 차시순위</button>
+                        <button onclick="state.teacherSubTab='totalRank'; render();" class="py-2.5 px-1 rounded-lg transition ${state.teacherSubTab==='totalRank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">🏆 전교랭킹</button>
+                        <button onclick="state.teacherSubTab='settings'; render();" class="py-2.5 px-1 rounded-lg transition ${state.teacherSubTab==='settings'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">⚙️ 설정</button>
                     </div>
 
                     <div class="flex-grow">
@@ -1118,13 +1118,14 @@
             return `
                 <div class="space-y-4">
                     <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
-                        <h3 class="text-xs font-bold text-teal-400">🔓 차시별 학생 접근 잠금 해제</h3>
+                        <h3 class="text-xs font-bold text-teal-400">🔓 차시별 학생 접근 잠금 해제 설정</h3>
+                        <p class="text-[10px] text-slate-400">버튼을 눌러 각 차시의 잠금을 열거나 닫을 수 있습니다.</p>
                         <div class="space-y-2">
                             ${[1,2,3,4,5].map((rNum, idx) => `
-                                <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-700">
-                                    <span class="text-xs font-medium">${rNum}차시 평가 화면</span>
-                                    <button onclick="toggleRoundUnlock(${idx})" class="px-3 py-1 rounded-md text-xs font-bold ${unlocked[idx]?'bg-teal-500 text-slate-950':'bg-slate-800 text-slate-400 border border-slate-700'}">
-                                        ${unlocked[idx] ? '🔓 해제됨 (입력가능)' : '🔒 잠김'}
+                                <div class="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-700">
+                                    <span class="text-xs font-bold text-white">${rNum}차시 평가 화면</span>
+                                    <button onclick="toggleRoundUnlock(${idx})" class="px-4 py-2 rounded-lg text-xs font-bold transition shadow ${unlocked[idx] ? 'bg-teal-500 text-slate-950 hover:bg-teal-400' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'}">
+                                        ${unlocked[idx] ? '🔓 해제됨 (입력가능)' : '🔒 잠김 (차단됨)'}
                                     </button>
                                 </div>
                             `).join('')}
