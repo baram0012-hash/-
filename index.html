@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (최종 마스터본)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (교사 자유수정 및 통합제출 완성본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48,9 +48,7 @@
         const state = {
             view: 'login',
             selectedClass: 1,
-            teacherRankClass: 0,       
-            teacherRoundRankClass: 1,  
-            teacherRankMode: 'total',  
+            teacherRankClass: 1,       
             student: null,
             activeTab: 'draw',
             selectedRound: 1,
@@ -102,16 +100,15 @@
         }
 
         function calcTakeoutScore(c) {
-            if (c < 0) return 10; // 미입력 및 1개 이하 기본점수 10점
+            if (c < 0) return 10; 
             const capped = Math.min(3, c);
-            if (capped >= 3) return 20; // 3개 이상 -> 20점
-            if (capped === 2) return 15; // 2개 -> 15점
-            return 10; // 1개, 0개 -> 10점
+            if (capped >= 3) return 20; 
+            if (capped === 2) return 15; 
+            return 10; 
         }
 
-        // 특정 차시의 총점 계산
         function getRoundScore(rData, rIdx) {
-            if (!rData || !rData.records) return 50; // 기본점수 총합 (20+20+10)
+            if (!rData || !rData.records) return 50; 
             
             const dVal = rData.records.draw ? rData.records.draw[rIdx] : -1;
             const gVal = rData.records.guard ? rData.records.guard[rIdx] : -1;
@@ -124,7 +121,6 @@
             return sD + sG + sT;
         }
 
-        // 학생의 모든 차시(1~5차시) 누적 총점 합산 계산
         function getTotalCumulativeScore(student) {
             if (!student || !student.rounds) return 0;
             let total = 0;
@@ -472,7 +468,6 @@
             `;
         }
 
-        // 반별 차시 순위 탭 ([🏫반별순위])
         function renderClassRank() {
             let list = [];
             const classes = state.dbData.classes || {};
@@ -523,7 +518,6 @@
             `;
         }
 
-        // 전교생 누적 총점 합산 TOP 30 랭킹 탭 (🏆전교30)
         function renderRank() {
             let list = [];
             const classes = state.dbData.classes || {};
@@ -549,7 +543,7 @@
                 <div class="space-y-3">
                     <div class="text-center">
                         <h3 class="text-base font-bold text-slate-900 tracking-tight">🏆 1학년 전체 누적 총점 TOP 30</h3>
-                        <p class="text-[11px] text-slate-400">모든 차시 점수가 합산된 전체 학급 상위 30명입니다.</p>
+                        <p class="text-[11px] text-slate-400">1차시부터 진행된 모든 차시 점수의 누적 합산 상위 30명입니다.</p>
                     </div>
 
                     <div class="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
@@ -575,16 +569,15 @@
         function renderPractice(cur, rData) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
-            const isUnlocked = unlockedRounds[rIdx];
 
             const val = rData.records[state.activeTab][rIdx];
             const displayVal = val >= 0 ? val : 0;
             const score = val >= 0 
                 ? (state.activeTab==='draw'?calcDrawScore(val):state.activeTab==='guard'?calcGuardScore(val):calcTakeoutScore(val))
-                : (state.activeTab==='takeout'?10:20); // 기본점수 (테이크아웃 10점, 드로우/가드 20점)
+                : (state.activeTab==='takeout'?10:20);
 
             let maxScore = 40;
-            let maxCount = 4; // 드로우, 가드는 4개
+            let maxCount = 4;
             let tabTitle = "🎯 스톤 드로우";
             let tabDesc = "스톤을 티와 버튼 안에 정확히 안착시키세요.";
 
@@ -593,7 +586,7 @@
                 tabTitle = "🛡️ 수비 가드";
                 tabDesc = "티 앞쪽 공간에 수비 스톤을 배치하세요.";
             } else if (state.activeTab === 'takeout') {
-                maxScore = 20; maxCount = 3; // 테이크아웃은 최대 3개 버튼 (0, 1, 2, 3개)
+                maxScore = 20; maxCount = 3;
                 tabTitle = "💥 테이크 아웃";
                 tabDesc = "버튼에 있는 스톤을 밖으로 밀어내세요 (최대 3개).";
             }
@@ -640,10 +633,15 @@
 
                         <div class="pt-2 border-t border-slate-100">
                             ${rData.approved 
-                                ? `<div class="w-full bg-teal-50 text-teal-700 font-bold py-3 rounded-xl text-xs border border-teal-200">✅ 선생님 승인 완료된 차시입니다. (수정 불가)</div>`
+                                ? `<div class="w-full bg-teal-50 text-teal-700 font-bold py-3 rounded-xl text-xs border border-teal-200">✅ 선생님 승인 완료된 차시입니다.</div>`
                                 : (rData.submitted 
-                                    ? `<button onclick="cancelSubmitRound()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl text-xs transition shadow">⏳ 제출 취소 및 수정하기</button>`
-                                    : `<button onclick="submitRound()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition shadow">📤 ${state.selectedRound}차시 최종 제출하기</button>`)
+                                    ? `
+                                        <div class="space-y-2">
+                                            <div class="w-full bg-sky-50 text-sky-700 font-bold py-2 rounded-xl text-xs border border-sky-200">⏳ 선생님 확인 대기 중</div>
+                                            <button onclick="cancelSubmitRound()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl text-xs transition shadow">제출 취소하고 수정하기</button>
+                                        </div>
+                                      `
+                                    : `<button onclick="submitRound()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition shadow">📤 [ ${state.selectedRound}차시 ] 모든 항목 최종 제출하기</button>`)
                             }
                         </div>
                     </div>
@@ -672,11 +670,11 @@
             const rData = cur.rounds[rKey];
 
             if (rData.approved) {
-                alert("선생님이 이미 승인한 차시는 점수를 수정할 수 없습니다!");
+                alert("선생님이 이미 승인한 차시입니다. 수정이 필요한 경우 교사 모니터링 화면에서 직접 수정하실 수 있습니다!");
                 return;
             }
             if (rData.submitted) {
-                alert("이미 제출된 차시입니다. 수정하려면 먼저 '제출 취소'를 눌러주세요.");
+                alert("이미 제출된 차시입니다. 수정하려면 아래 '제출 취소하고 수정하기' 버튼을 눌러주세요.");
                 return;
             }
 
@@ -702,7 +700,7 @@
             if (dbRef) {
                 dbRef.child('classes/' + state.selectedClass).set(classStudents);
             }
-            alert(`${state.selectedRound}차시 기록이 선생님께 제출되었습니다!`);
+            alert(`${state.selectedRound}차시의 모든 항목(드로우, 가드, 테이크아웃) 점수가 안전하게 제출되었습니다!`);
             render();
         }
 
@@ -713,7 +711,7 @@
 
             const rKey = 'round_' + state.selectedRound;
             if (cur.rounds[rKey].approved) {
-                alert("이미 승인된 항목은 취소할 수 없습니다.");
+                alert("이미 승인된 항목입니다.");
                 return;
             }
             cur.rounds[rKey].submitted = false;
@@ -721,7 +719,7 @@
             if (dbRef) {
                 dbRef.child('classes/' + state.selectedClass).set(classStudents);
             }
-            alert("제출이 취소되었습니다. 점수를 수정할 수 있습니다.");
+            alert("제출이 취소되었습니다. 이제 점수를 수정할 수 있습니다.");
             render();
         }
 
@@ -740,17 +738,63 @@
 
                     <div class="flex bg-slate-800 p-1 rounded-xl text-xs font-semibold text-center border border-slate-700">
                         <button onclick="state.teacherSubTab='monitor'; render();" class="flex-1 py-2 rounded-lg transition ${state.teacherSubTab==='monitor'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">📋 실시간 모니터링</button>
-                        <button onclick="state.teacherSubTab='settings'; render();" class="flex-1 py-2 rounded-lg transition ${state.teacherSubTab==='settings'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">⚙️ 차시잠금/설정</button>
+                        <button onclick="state.teacherSubTab='classRank'; render();" class="flex-1 py-2 rounded-lg transition ${state.teacherSubTab==='classRank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">🏫 학급별 랭킹 조회</button>
+                        <button onclick="state.teacherSubTab='settings'; render();" class="flex-1 py-2 rounded-lg transition ${state.teacherSubTab==='settings'?'bg-teal-500 text-slate-950 font-bold':'text-slate-400 hover:text-white'}">⚙️ 설정</button>
                     </div>
 
                     <div class="flex-grow">
-                        ${state.teacherSubTab === 'settings' ? renderTeacherSettings() : renderTeacherMonitor()}
+                        ${state.teacherSubTab === 'classRank' ? renderTeacherClassRankView() : (state.teacherSubTab === 'settings' ? renderTeacherSettings() : renderTeacherMonitor())}
                     </div>
                 </div>
             `;
         }
 
-        // 교사 모니터링 화면
+        function renderTeacherClassRankView() {
+            let list = [];
+            const classes = state.dbData.classes || {};
+            const cNum = state.teacherRankClass || 1;
+            const stds = classes[cNum] || [];
+
+            stds.forEach(s => {
+                const cumulativeScore = getTotalCumulativeScore(s);
+                if (cumulativeScore > 0 || (s.rounds && Object.keys(s.rounds).length > 0)) {
+                    const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
+                    list.push({
+                        number: s.number, name: s.name, avatarIcon: avObj.icon,
+                        score: cumulativeScore
+                    });
+                }
+            });
+
+            list.sort((a,b) => b.score - a.score);
+
+            return `
+                <div class="space-y-4">
+                    <div class="bg-slate-800 p-3.5 rounded-xl border border-slate-700 flex justify-between items-center">
+                        <span class="text-xs font-bold text-teal-400">🏫 학급별 누적 총점 랭킹 조회</span>
+                        <select class="bg-slate-900 text-white font-bold p-2 rounded-lg border border-slate-700 text-xs" onchange="state.teacherRankClass=Number(this.value); render();">
+                            ${[1,2,3,4,5,6,7,8,9].map(c => `<option value="${c}" ${c===state.teacherRankClass?'selected':''}>1학년 ${c}반</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                        ${list.length === 0 ? `<div class="text-center py-12 text-xs text-slate-500">1학년 ${cNum}반에 등록된 학생 기록이 없습니다.</div>` : ''}
+                        ${list.map((st, i) => `
+                            <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center border border-slate-700">
+                                <div class="flex items-center space-x-3">
+                                    <span class="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${i===0?'bg-amber-400 text-slate-950':i===1?'bg-slate-300 text-slate-800':i===2?'bg-amber-700 text-white':'bg-slate-900 text-slate-400 border border-slate-700'}">
+                                        ${i+1}
+                                    </span>
+                                    <span class="text-xs font-medium text-white">${st.avatarIcon} ${st.number}번 ${st.name}</span>
+                                </div>
+                                <span class="font-bold text-sm text-teal-400">${st.score}점</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
         function renderTeacherMonitor() {
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             classStudents.sort((a,b) => Number(a.number) - Number(b.number));
@@ -814,7 +858,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- 항목별 가시화 및 직접 수정 영역 -->
                                     <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-700/60 text-[11px]">
                                         <div onclick="teacherQuickEdit(${s.number}, 'draw')" class="bg-slate-900/80 p-2 rounded-lg border border-slate-700 text-center cursor-pointer hover:border-teal-400 transition" title="클릭하여 수정">
                                             <div class="text-slate-400 text-[10px]">🎯 드로우</div>
@@ -837,7 +880,7 @@
             `;
         }
 
-        // 교사가 모니터링 화면에서 항목을 터치해 점수를 즉시 수정하는 기능
+        // 🌟 교사는 승인 여부와 상관없이 언제든지 아래 함수로 점수를 즉시 수정할 수 있음!
         function teacherQuickEdit(num, category) {
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             const target = classStudents.find(s => Number(s.number) === Number(num));
@@ -852,9 +895,9 @@
                 };
             }
             const rData = target.rounds[rKey];
-            const maxCnt = category === 'takeout' ? 3 : 4; // 테이크아웃은 교사 모드에서도 최대 3개
+            const maxCnt = category === 'takeout' ? 3 : 4;
 
-            const inputStr = prompt(`${target.number}번 ${target.name} 학생의 [${category === 'draw' ? '드로우' : category === 'guard' ? '가드' : '테이크아웃'}] 성공 개수를 입력하세요 (0 ~ ${maxCnt}):`);
+            const inputStr = prompt(`${target.number}번 ${target.name} 학생의 [ ${state.selectedRound}차시 - ${category === 'draw' ? '드로우' : category === 'guard' ? '가드' : '테이크아웃'} ] 성공 개수를 입력하세요 (0 ~ ${maxCnt}):`);
             if (inputStr === null) return;
 
             const cnt = Number(inputStr);
@@ -963,7 +1006,7 @@
         function safeResetData() {
             const pwd = prompt("데이터를 완전히 초기화하려면 관리자 비밀번호를 입력하세요:");
             const currentPwd = state.dbData.teacherPwd || "0000";
-            if (pwd === currentPwd) {
+            if (pwd === currentpwd) { // 안전 비교
                 if (confirm("정말 모든 학생 기록을 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
                     state.dbData = { classes: {}, unlockedRounds: [true, false, false, false, false], teacherPwd: currentPwd };
                     pushDb();
