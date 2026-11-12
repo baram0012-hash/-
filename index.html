@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 완벽 통제 긴급 패치)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 완벽 봉쇄 최종본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -68,7 +68,7 @@
                     if (data.unlockedRounds && Array.isArray(data.unlockedRounds)) {
                         state.dbData.unlockedRounds = data.unlockedRounds;
                         
-                        // 현재 선택된 차시가 잠겨있다면 풀려있는 가장 첫 번째 차시로 강제 이동
+                        // 현재 선택된 차시가 잠겨있다면 해제된 가장 첫 번째 차시로 강제 이동
                         const rIdx = state.selectedRound - 1;
                         if (!state.dbData.unlockedRounds[rIdx]) {
                             const firstUnlocked = state.dbData.unlockedRounds.findIndex(Boolean);
@@ -309,7 +309,7 @@
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             const cur = classStudents.find(s => Number(s.number) === Number(state.student.number)) || state.student;
             
-            // 만약 현재 선택된 차시가 잠겨있다면 첫 번째로 풀려있는 차시를 강제 지정
+            // 🔒 [보안 강화] 현재 선택된 차시가 잠겨있다면 풀려있는 가장 첫 번째 차시로 강제 이동
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             if (!unlockedRounds[state.selectedRound - 1]) {
                 const firstUnlocked = unlockedRounds.findIndex(Boolean);
@@ -371,15 +371,15 @@
                                 ? `<span class="bg-teal-500/20 text-teal-300 font-bold px-2.5 py-0.5 rounded-md border border-teal-500/40 text-[11px]">✅ 선생님 승인 완료</span>` 
                                 : (rData.submitted 
                                     ? `<span class="bg-sky-500/20 text-sky-300 font-bold px-2.5 py-0.5 rounded-md border border-sky-500/40 text-[11px]">⏳ 선생님 확인 대기 중</span>`
-                                    : `<span class="bg-amber-500/20 text-amber-300 font-bold px-2.5 py-0.5 rounded-md border border-amber-500/40 text-[11px]">✍️ ${state.selectedRound}차시 과제 수행 중</span>`)
+                                    : `<span class="bg-amber-500/20 text-amber-300 font-bold px-2.5 py-0.5 rounded-md border border-amber-300/40 text-[11px]">✍️ ${state.selectedRound}차시 과제 수행 중</span>`)
                             }
                         </div>
                     </div>
 
                     <div class="flex p-1 bg-white m-3 mb-2 rounded-xl shadow-sm border border-slate-200/80 text-[10px] font-semibold text-center overflow-x-auto">
-                        <button onclick="state.activeTab='draw'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[45px] ${state.activeTab==='draw'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">🎯드로우</button>
-                        <button onclick="state.activeTab='guard'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[45px] ${state.activeTab==='guard'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">🛡️가드</button>
-                        <button onclick="state.activeTab='takeout'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='takeout'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">💥테이크</button>
+                        <button onclick="changeTab('draw')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[45px] ${state.activeTab==='draw'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">🎯드로우</button>
+                        <button onclick="changeTab('guard')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[45px] ${state.activeTab==='guard'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">🛡️가드</button>
+                        <button onclick="changeTab('takeout')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='takeout'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">💥테이크</button>
                         <button onclick="state.activeTab='guide'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='guide'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">📊기준</button>
                         <button onclick="state.activeTab='rank'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='rank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-500 hover:text-slate-900'}">🏆전교30</button>
                         <button onclick="state.activeTab='classRank'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[55px] ${state.activeTab==='classRank'?'bg-sky-500 text-slate-950 font-bold':'text-slate-500 hover:text-slate-900'}">🏫반별순위</button>
@@ -391,6 +391,18 @@
                     </div>
                 </div>
             `;
+        }
+
+        // 🔒 탭 변경 시에도 차시 잠금 상태 철저히 검사
+        function changeTab(tabName) {
+            const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
+            const rIdx = state.selectedRound - 1;
+            if (!unlockedRounds[rIdx]) {
+                alert("현재 선택된 차시는 잠겨 있어서 입력 탭을 이용할 수 없습니다!");
+                return;
+            }
+            state.activeTab = tabName;
+            render();
         }
 
         function renderGuideTab() {
@@ -696,7 +708,7 @@
             render();
         }
 
-        // 🔒 [철저 차단] 플러스 마이너스 버튼 조절 함수
+        // 🔒 [원천 차단] 플러스 마이너스 버튼 조절 함수
         function adjustScore(amount) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
