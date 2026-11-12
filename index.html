@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (최종 최적화본)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (최종 마스터본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,36 +59,30 @@
             dbData: { classes: {}, unlockedRounds: [true, false, false, false, false], teacherPwd: "0000" }
         };
 
-        // 🛡️ [데이터 보호 동기화] 기존 데이터를 지우지 않고 안전하게 병합하여 불러오기
+        // 실시간 데이터 동기화 리스너
         if (dbRef) {
             dbRef.on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
-                    if (data.classes) {
-                        state.dbData.classes = data.classes;
-                    }
+                    if (data.classes) state.dbData.classes = data.classes;
                     if (data.unlockedRounds && Array.isArray(data.unlockedRounds)) {
                         state.dbData.unlockedRounds = data.unlockedRounds;
                     }
-                    if (data.teacherPwd) {
-                        state.dbData.teacherPwd = data.teacherPwd;
-                    }
+                    if (data.teacherPwd) state.dbData.teacherPwd = data.teacherPwd;
                 }
                 render();
             });
         }
 
-        // 🛡️ [안전장치 1] 빈 데이터 덮어쓰기 원천 차단 및 개별 노드 업데이트
         function pushDb() {
             if (dbRef && state.dbData && Object.keys(state.dbData).length > 0) {
                 dbRef.set(state.dbData);
-            } else {
-                console.warn("⚠️ 경고: 빈 데이터가 서버에 덮어씌워지는 시도가 차단되었습니다.");
             }
         }
 
+        // 점수 계산 로직
         function calcDrawScore(c) {
-            if (c < 0) return 0;
+            if (c < 0) return 20; 
             const capped = Math.min(4, c);
             if (capped >= 4) return 40;
             if (capped === 3) return 35;
@@ -98,7 +92,7 @@
         }
 
         function calcGuardScore(c) {
-            if (c < 0) return 0;
+            if (c < 0) return 20; 
             const capped = Math.min(4, c);
             if (capped >= 4) return 40;
             if (capped === 3) return 35;
@@ -108,26 +102,47 @@
         }
 
         function calcTakeoutScore(c) {
-            if (c < 0) return 0;
+            if (c < 0) return 10; // 미입력 및 1개 이하 기본점수 10점
             const capped = Math.min(3, c);
-            if (capped >= 3) return 20;
-            if (capped === 2) return 15;
-            if (capped === 1) return 10;
-            return 0;
+            if (capped >= 3) return 20; // 3개 이상 -> 20점
+            if (capped === 2) return 15; // 2개 -> 15점
+            return 10; // 1개, 0개 -> 10점
         }
 
+        // 특정 차시의 총점 계산
         function getRoundScore(rData, rIdx) {
-            if (!rData || !rData.records) return 0;
+            if (!rData || !rData.records) return 50; // 기본점수 총합 (20+20+10)
             
             const dVal = rData.records.draw ? rData.records.draw[rIdx] : -1;
             const gVal = rData.records.guard ? rData.records.guard[rIdx] : -1;
             const tVal = rData.records.takeout ? rData.records.takeout[rIdx] : -1;
 
-            const sD = dVal >= 0 ? calcDrawScore(dVal) : 0;
-            const sG = gVal >= 0 ? calcGuardScore(gVal) : 0;
-            const sT = tVal >= 0 ? calcTakeoutScore(tVal) : 0;
+            const sD = calcDrawScore(dVal);
+            const sG = calcGuardScore(gVal);
+            const sT = calcTakeoutScore(tVal);
 
             return sD + sG + sT;
+        }
+
+        // 학생의 모든 차시(1~5차시) 누적 총점 합산 계산
+        function getTotalCumulativeScore(student) {
+            if (!student || !student.rounds) return 0;
+            let total = 0;
+            for (let i = 0; i < 5; i++) {
+                const rKey = 'round_' + (i + 1);
+                const rData = student.rounds[rKey];
+                if (rData) {
+                    const hasRecord = rData.records && (
+                        (rData.records.draw && rData.records.draw[i] >= 0) ||
+                        (rData.records.guard && rData.records.guard[i] >= 0) ||
+                        (rData.records.takeout && rData.records.takeout[i] >= 0)
+                    );
+                    if (rData.approved || rData.submitted || hasRecord) {
+                        total += getRoundScore(rData, i);
+                    }
+                }
+            }
+            return total;
         }
 
         function render() {
@@ -271,7 +286,6 @@
             classStudents.sort((a, b) => Number(a.number) - Number(b.number));
 
             state.student = student;
-            // 🛡️ 해당 학급 데이터만 특정 경로에 타겟 푸시 수행하여 다른 반/학생 데이터 보호
             if (dbRef) {
                 dbRef.child('classes/' + state.selectedClass).set(classStudents);
             }
@@ -376,38 +390,38 @@
 
                         <div class="border border-slate-200 rounded-xl overflow-hidden">
                             <div class="bg-slate-900 text-white px-3 py-2 text-xs font-bold flex justify-between items-center">
-                                <span>🎯 드로우 영역 (40점 만점)</span>
+                                <span>🎯 드로우 영역 (40점 만점 / 기본 20점)</span>
                             </div>
                             <div class="p-2 bg-slate-50 text-[11px] space-y-1">
-                                <div class="flex justify-between p-1 bg-white rounded"><span>A등급 : 4개 이상 안착</span><span class="font-bold text-teal-600">40점</span></div>
+                                <div class="flex justify-between p-1 bg-white rounded"><span>A등급 : 4개 안착</span><span class="font-bold text-teal-600">40점</span></div>
                                 <div class="flex justify-between p-1 bg-white rounded"><span>B등급 : 3개 안착</span><span class="font-bold text-slate-700">35점</span></div>
                                 <div class="flex justify-between p-1 bg-white rounded"><span>C등급 : 2개 안착</span><span class="font-bold text-slate-700">30점</span></div>
                                 <div class="flex justify-between p-1 bg-white rounded"><span>D등급 : 1개 안착</span><span class="font-bold text-slate-700">25점</span></div>
-                                <div class="flex justify-between p-1 bg-white rounded"><span>E등급 : 0개 성공</span><span class="font-bold text-slate-400">20점</span></div>
+                                <div class="flex justify-between p-1 bg-white rounded"><span>E등급 : 0개 성공 (기본)</span><span class="font-bold text-slate-400">20점</span></div>
                             </div>
                         </div>
 
                         <div class="border border-slate-200 rounded-xl overflow-hidden">
                             <div class="bg-slate-900 text-white px-3 py-2 text-xs font-bold flex justify-between items-center">
-                                <span>🛡️ 가드 영역 (40점 만점)</span>
+                                <span>🛡️ 가드 영역 (40점 만점 / 기본 20점)</span>
                             </div>
                             <div class="p-2 bg-slate-50 text-[11px] space-y-1">
-                                <div class="flex justify-between p-1 bg-white rounded"><span>A등급 : 4개 이상 배치</span><span class="font-bold text-teal-600">40점</span></div>
+                                <div class="flex justify-between p-1 bg-white rounded"><span>A등급 : 4개 배치</span><span class="font-bold text-teal-600">40점</span></div>
                                 <div class="flex justify-between p-1 bg-white rounded"><span>B등급 : 3개 배치</span><span class="font-bold text-slate-700">35점</span></div>
                                 <div class="flex justify-between p-1 bg-white rounded"><span>C등급 : 2개 배치</span><span class="font-bold text-slate-700">30점</span></div>
                                 <div class="flex justify-between p-1 bg-white rounded"><span>D등급 : 1개 배치</span><span class="font-bold text-slate-700">25점</span></div>
-                                <div class="flex justify-between p-1 bg-white rounded"><span>E등급 : 0개 성공</span><span class="font-bold text-slate-400">20점</span></div>
+                                <div class="flex justify-between p-1 bg-white rounded"><span>E등급 : 0개 성공 (기본)</span><span class="font-bold text-slate-400">20점</span></div>
                             </div>
                         </div>
 
                         <div class="border border-slate-200 rounded-xl overflow-hidden">
                             <div class="bg-slate-900 text-white px-3 py-2 text-xs font-bold flex justify-between items-center">
-                                <span>💥 테이크아웃 영역 (20점 만점)</span>
+                                <span>💥 테이크아웃 영역 (20점 만점 / 기본 10점)</span>
                             </div>
                             <div class="p-2 bg-slate-50 text-[11px] space-y-1">
                                 <div class="flex justify-between p-1 bg-white rounded"><span>A등급 : 3개 이상 밀어냄</span><span class="font-bold text-teal-600">20점</span></div>
                                 <div class="flex justify-between p-1 bg-white rounded"><span>B등급 : 2개 밀어냄</span><span class="font-bold text-slate-700">15점</span></div>
-                                <div class="flex justify-between p-1 bg-white rounded"><span>C등급 : 1개 이하 밀어냄</span><span class="font-bold text-slate-400">10점</span></div>
+                                <div class="flex justify-between p-1 bg-white rounded"><span>C등급 : 1개 이하 / 0개 (기본)</span><span class="font-bold text-slate-400">10점</span></div>
                             </div>
                         </div>
                     </div>
@@ -458,6 +472,7 @@
             `;
         }
 
+        // 반별 차시 순위 탭 ([🏫반별순위])
         function renderClassRank() {
             let list = [];
             const classes = state.dbData.classes || {};
@@ -508,6 +523,7 @@
             `;
         }
 
+        // 전교생 누적 총점 합산 TOP 30 랭킹 탭 (🏆전교30)
         function renderRank() {
             let list = [];
             const classes = state.dbData.classes || {};
@@ -515,17 +531,13 @@
             Object.keys(classes).forEach(cKey => {
                 const stds = classes[cKey];
                 stds.forEach(s => {
-                    if (s.rounds) {
-                        const rKey = 'round_' + state.selectedRound;
-                        const rData = s.rounds[rKey];
-                        if (rData && (rData.approved || rData.submitted)) {
-                            const roundScore = getRoundScore(rData, state.selectedRound - 1);
-                            const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
-                            list.push({
-                                className: cKey, number: s.number, name: s.name, avatarIcon: avObj.icon,
-                                score: roundScore, isMe: (state.student && s.number === state.student.number && Number(cKey) === state.selectedClass)
-                            });
-                        }
+                    const cumulativeScore = getTotalCumulativeScore(s);
+                    if (cumulativeScore > 0) {
+                        const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
+                        list.push({
+                            className: cKey, number: s.number, name: s.name, avatarIcon: avObj.icon,
+                            score: cumulativeScore, isMe: (state.student && s.number === state.student.number && Number(cKey) === state.selectedClass)
+                        });
                     }
                 });
             });
@@ -536,12 +548,12 @@
             return `
                 <div class="space-y-3">
                     <div class="text-center">
-                        <h3 class="text-base font-bold text-slate-900 tracking-tight">🏆 1학년 전체 [ ${state.selectedRound}차시 ] TOP 30</h3>
-                        <p class="text-[11px] text-slate-400">전체 학급 중 상위 30명의 실시간 순위입니다.</p>
+                        <h3 class="text-base font-bold text-slate-900 tracking-tight">🏆 1학년 전체 누적 총점 TOP 30</h3>
+                        <p class="text-[11px] text-slate-400">모든 차시 점수가 합산된 전체 학급 상위 30명입니다.</p>
                     </div>
 
                     <div class="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
-                        ${topList.length === 0 ? `<div class="text-center py-10 text-xs text-slate-400">아직 등록된 기록이 없습니다.</div>` : ''}
+                        ${topList.length === 0 ? `<div class="text-center py-10 text-xs text-slate-400">아직 등록된 누적 기록이 없습니다.</div>` : ''}
                         ${topList.map((st, i) => {
                             return `
                                 <div class="bg-white p-3.5 rounded-xl flex justify-between items-center shadow-sm border ${st.isMe ? 'border-teal-400 bg-teal-50/50' : 'border-slate-200/70'}">
@@ -569,10 +581,10 @@
             const displayVal = val >= 0 ? val : 0;
             const score = val >= 0 
                 ? (state.activeTab==='draw'?calcDrawScore(val):state.activeTab==='guard'?calcGuardScore(val):calcTakeoutScore(val))
-                : 0;
+                : (state.activeTab==='takeout'?10:20); // 기본점수 (테이크아웃 10점, 드로우/가드 20점)
 
             let maxScore = 40;
-            let maxCount = 4;
+            let maxCount = 4; // 드로우, 가드는 4개
             let tabTitle = "🎯 스톤 드로우";
             let tabDesc = "스톤을 티와 버튼 안에 정확히 안착시키세요.";
 
@@ -581,9 +593,9 @@
                 tabTitle = "🛡️ 수비 가드";
                 tabDesc = "티 앞쪽 공간에 수비 스톤을 배치하세요.";
             } else if (state.activeTab === 'takeout') {
-                maxScore = 20; maxCount = 3;
+                maxScore = 20; maxCount = 3; // 테이크아웃은 최대 3개 버튼 (0, 1, 2, 3개)
                 tabTitle = "💥 테이크 아웃";
-                tabDesc = "버튼에 있는 상대 스톤을 밖으로 밀어내세요.";
+                tabDesc = "버튼에 있는 스톤을 밖으로 밀어내세요 (최대 3개).";
             }
 
             return `
@@ -618,7 +630,7 @@
                             <div class="text-xs font-bold text-teal-600">획득 점수: ${score}점 / ${maxScore}점 만점</div>
                         </div>
 
-                        <div class="grid grid-cols-5 gap-2">
+                        <div class="grid grid-cols-${maxCount + 1} gap-2">
                             ${Array.from({length: maxCount + 1}, (_, i) => i).map(num => `
                                 <button onclick="setScoreRecord(${num})" class="btn-chic py-3 rounded-xl text-sm font-bold border ${val === num ? 'bg-teal-500 text-slate-950 border-teal-500 shadow-md' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'}">
                                     ${num}개
@@ -650,6 +662,13 @@
             if (!cur) return;
 
             const rKey = 'round_' + state.selectedRound;
+            if (!cur.rounds[rKey]) {
+                cur.rounds[rKey] = {
+                    submitted: false,
+                    approved: false,
+                    records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] }
+                };
+            }
             const rData = cur.rounds[rKey];
 
             if (rData.approved) {
@@ -661,9 +680,11 @@
                 return;
             }
 
+            if (!rData.records[state.activeTab]) {
+                rData.records[state.activeTab] = [-1,-1,-1,-1,-1];
+            }
             rData.records[state.activeTab][state.selectedRound - 1] = count;
             
-            // 🛡️ 해당 학급 데이터만 안전하게 개별 타겟 업데이트
             if (dbRef) {
                 dbRef.child('classes/' + state.selectedClass).set(classStudents);
             }
@@ -678,7 +699,6 @@
             const rKey = 'round_' + state.selectedRound;
             cur.rounds[rKey].submitted = true;
             
-            // 🛡️ 해당 학급 데이터만 안전하게 개별 타겟 업데이트
             if (dbRef) {
                 dbRef.child('classes/' + state.selectedClass).set(classStudents);
             }
@@ -698,7 +718,6 @@
             }
             cur.rounds[rKey].submitted = false;
             
-            // 🛡️ 해당 학급 데이터만 안전하게 개별 타겟 업데이트
             if (dbRef) {
                 dbRef.child('classes/' + state.selectedClass).set(classStudents);
             }
@@ -706,7 +725,6 @@
             render();
         }
 
-        // 교사 관리자 대시보드 화면
         function renderTeacherMain() {
             return `
                 <div class="flex flex-col flex-grow bg-slate-900 text-white min-h-screen p-4 space-y-4">
@@ -732,9 +750,11 @@
             `;
         }
 
+        // 교사 모니터링 화면
         function renderTeacherMonitor() {
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             classStudents.sort((a,b) => Number(a.number) - Number(b.number));
+            const rIdx = state.selectedRound - 1;
 
             return `
                 <div class="space-y-4">
@@ -753,32 +773,61 @@
                         </div>
                     </div>
 
-                    <div class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                    <div class="space-y-3 max-h-[380px] overflow-y-auto pr-1">
                         ${classStudents.length === 0 ? `<div class="text-center py-12 text-xs text-slate-500">등록된 학생이 없습니다.</div>` : ''}
                         ${classStudents.map(s => {
                             const rKey = 'round_' + state.selectedRound;
-                            if (!s.rounds || !s.rounds[rKey]) return '';
+                            if (!s.rounds || !s.rounds[rKey]) {
+                                s.rounds = s.rounds || {};
+                                s.rounds[rKey] = { submitted: false, approved: false, records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] } };
+                            }
                             const rData = s.rounds[rKey];
-                            const score = getRoundScore(rData, state.selectedRound - 1);
+                            const dVal = rData.records.draw ? rData.records.draw[rIdx] : -1;
+                            const gVal = rData.records.guard ? rData.records.guard[rIdx] : -1;
+                            const tVal = rData.records.takeout ? rData.records.takeout[rIdx] : -1;
+
+                            const sD = calcDrawScore(dVal);
+                            const sG = calcGuardScore(gVal);
+                            const sT = calcTakeoutScore(tVal);
+                            const totalScore = getRoundScore(rData, rIdx);
+
                             const avObj = AVATARS.find(a => a.id === s.avatar) || AVATARS[0];
 
                             return `
-                                <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700 flex justify-between items-center">
-                                    <div class="flex items-center space-x-2.5">
-                                        <span class="text-base">${avObj.icon}</span>
-                                        <div>
-                                            <div class="text-xs font-bold text-white">${s.number}번 ${s.name}</div>
-                                            <div class="text-[10px] text-teal-400 font-semibold mt-0.5">점수: ${score}점</div>
+                                <div class="bg-slate-800/90 p-3.5 rounded-xl border border-slate-700 space-y-2.5">
+                                    <div class="flex justify-between items-center">
+                                        <div class="flex items-center space-x-2.5">
+                                            <span class="text-base">${avObj.icon}</span>
+                                            <div>
+                                                <div class="text-xs font-bold text-white">${s.number}번 ${s.name}</div>
+                                                <div class="text-[10px] text-teal-400 font-bold mt-0.5">차시 총점: ${totalScore}점</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center space-x-1.5">
+                                            ${rData.approved 
+                                                ? `<button onclick="teacherToggleApprove(${s.number}, false)" class="bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">승인완료(취소)</button>`
+                                                : (rData.submitted 
+                                                    ? `<button onclick="teacherToggleApprove(${s.number}, true)" class="bg-sky-500 hover:bg-sky-400 text-slate-950 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition">승인하기</button>`
+                                                    : `<span class="text-[10px] text-slate-500">수행중</span>`)
+                                            }
+                                            <button onclick="teacherDeleteStudent(${s.number})" class="text-slate-500 hover:text-red-400 p-1 text-xs">🗑️</button>
                                         </div>
                                     </div>
-                                    <div class="flex items-center space-x-2">
-                                        ${rData.approved 
-                                            ? `<button onclick="teacherToggleApprove(${s.number}, false)" class="bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[10px] font-bold px-3 py-1.5 rounded-lg">승인완료 (취소)</button>`
-                                            : (rData.submitted 
-                                                ? `<button onclick="teacherToggleApprove(${s.number}, true)" class="bg-sky-500 hover:bg-sky-400 text-slate-950 text-[10px] font-bold px-3 py-1.5 rounded-lg transition">승인하기</button>`
-                                                : `<span class="text-[10px] text-slate-500">수행중</span>`)
-                                        }
-                                        <button onclick="teacherDeleteStudent(${s.number})" class="text-slate-500 hover:text-red-400 p-1 text-xs">🗑️</button>
+
+                                    <!-- 항목별 가시화 및 직접 수정 영역 -->
+                                    <div class="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-700/60 text-[11px]">
+                                        <div onclick="teacherQuickEdit(${s.number}, 'draw')" class="bg-slate-900/80 p-2 rounded-lg border border-slate-700 text-center cursor-pointer hover:border-teal-400 transition" title="클릭하여 수정">
+                                            <div class="text-slate-400 text-[10px]">🎯 드로우</div>
+                                            <div class="font-bold text-teal-300 mt-0.5">${dVal>=0?dVal+'개 ('+sD+'점)':'0개 (기본 20점)'}</div>
+                                        </div>
+                                        <div onclick="teacherQuickEdit(${s.number}, 'guard')" class="bg-slate-900/80 p-2 rounded-lg border border-slate-700 text-center cursor-pointer hover:border-teal-400 transition" title="클릭하여 수정">
+                                            <div class="text-slate-400 text-[10px]">🛡️ 가드</div>
+                                            <div class="font-bold text-teal-300 mt-0.5">${gVal>=0?gVal+'개 ('+sG+'점)':'0개 (기본 20점)'}</div>
+                                        </div>
+                                        <div onclick="teacherQuickEdit(${s.number}, 'takeout')" class="bg-slate-900/80 p-2 rounded-lg border border-slate-700 text-center cursor-pointer hover:border-teal-400 transition" title="클릭하여 수정">
+                                            <div class="text-slate-400 text-[10px]">💥 테이크</div>
+                                            <div class="font-bold text-teal-300 mt-0.5">${tVal>=0?tVal+'개 ('+sT+'점)':'0개 (기본 10점)'}</div>
+                                        </div>
                                     </div>
                                 </div>
                             `;
@@ -786,6 +835,43 @@
                     </div>
                 </div>
             `;
+        }
+
+        // 교사가 모니터링 화면에서 항목을 터치해 점수를 즉시 수정하는 기능
+        function teacherQuickEdit(num, category) {
+            const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
+            const target = classStudents.find(s => Number(s.number) === Number(num));
+            if (!target) return;
+
+            const rKey = 'round_' + state.selectedRound;
+            if (!target.rounds[rKey]) {
+                target.rounds[rKey] = {
+                    submitted: false,
+                    approved: false,
+                    records: { draw: [-1,-1,-1,-1,-1], guard: [-1,-1,-1,-1,-1], takeout: [-1,-1,-1,-1,-1] }
+                };
+            }
+            const rData = target.rounds[rKey];
+            const maxCnt = category === 'takeout' ? 3 : 4; // 테이크아웃은 교사 모드에서도 최대 3개
+
+            const inputStr = prompt(`${target.number}번 ${target.name} 학생의 [${category === 'draw' ? '드로우' : category === 'guard' ? '가드' : '테이크아웃'}] 성공 개수를 입력하세요 (0 ~ ${maxCnt}):`);
+            if (inputStr === null) return;
+
+            const cnt = Number(inputStr);
+            if (isNaN(cnt) || cnt < 0 || cnt > maxCnt) {
+                alert(`0부터 ${maxCnt} 사이의 숫자를 입력해주세요.`);
+                return;
+            }
+
+            if (!rData.records[category]) {
+                rData.records[category] = [-1,-1,-1,-1,-1];
+            }
+            rData.records[category][state.selectedRound - 1] = cnt;
+
+            if (dbRef) {
+                dbRef.child('classes/' + state.selectedClass).set(classStudents);
+            }
+            render();
         }
 
         function renderTeacherSettings() {
@@ -832,7 +918,6 @@
                 const rKey = 'round_' + state.selectedRound;
                 if (target.rounds && target.rounds[rKey]) {
                     target.rounds[rKey].approved = approveVal;
-                    // 🛡️ 해당 학급 데이터만 안전하게 개별 타겟 업데이트 (다른 학생 승인 기록 보존)
                     if (dbRef) {
                         dbRef.child('classes/' + state.selectedClass).set(classStudents);
                     }
@@ -875,7 +960,6 @@
             document.getElementById('new-pwd-input').value = '';
         }
 
-        // 🛡️ [안전장치 2] 주머니 속 오작동 방지용 비밀번호 확인형 리셋 함수
         function safeResetData() {
             const pwd = prompt("데이터를 완전히 초기화하려면 관리자 비밀번호를 입력하세요:");
             const currentPwd = state.dbData.teacherPwd || "0000";
@@ -891,7 +975,6 @@
             }
         }
 
-        // 초기 실행
         window.onload = function() {
             render();
         };
