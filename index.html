@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 철저 봉쇄 최종 패치)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (교사 차시 제어 복구 완료본)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -67,12 +67,14 @@
                     if (data.unlockedRounds && Array.isArray(data.unlockedRounds)) {
                         state.dbData.unlockedRounds = data.unlockedRounds;
                         
-                        // 현재 선택된 차시가 잠겨있다면 해제된 가장 첫 번째 차시로 강제 이동
-                        const rIdx = state.selectedRound - 1;
-                        if (!state.dbData.unlockedRounds[rIdx]) {
-                            const firstUnlocked = state.dbData.unlockedRounds.findIndex(Boolean);
-                            if (firstUnlocked !== -1) {
-                                state.selectedRound = firstUnlocked + 1;
+                        // 🌟 [수정] 교사 모드일 때는 강제 이동하지 않고, 학생(student_main)일 때만 잠긴 차시 접근 시 열린 차시로 이동
+                        if (state.view === 'student_main') {
+                            const rIdx = state.selectedRound - 1;
+                            if (!state.dbData.unlockedRounds[rIdx]) {
+                                const firstUnlocked = state.dbData.unlockedRounds.findIndex(Boolean);
+                                if (firstUnlocked !== -1) {
+                                    state.selectedRound = firstUnlocked + 1;
+                                }
                             }
                         }
                     }
@@ -308,7 +310,7 @@
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             const cur = classStudents.find(s => Number(s.number) === Number(state.student.number)) || state.student;
             
-            // 🔒 [철저 방어막 1] 현재 선택된 차시가 잠겨있다면 해제된 차시 중 가장 첫 번째로 강제 이동
+            // 🔒 학생 화면일 때만 잠긴 차시 접근 시 열린 차시로 이동
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
             if (!unlockedRounds[rIdx]) {
@@ -395,12 +397,10 @@
             `;
         }
 
-        // 🔒 [철저 방어막 2] 탭 변경 시 채점 탭(draw, guard, takeout)은 현재 차시가 잠겨있으면 절대 진입 불가
         function changeTab(tabName) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
             
-            // 정보성 탭(guide, rank, classRank, reward)은 언제든 볼 수 있지만, 채점 탭은 잠겨있으면 차단
             if ((tabName === 'draw' || tabName === 'guard' || tabName === 'takeout') && !unlockedRounds[rIdx]) {
                 alert("🔒 현재 선택된 차시는 잠겨 있어서 입력 화면을 이용할 수 없습니다!");
                 return;
@@ -701,7 +701,6 @@
             `;
         }
 
-        // 🔒 [철저 방어막 3] 차시 선택 버튼 클릭 시 잠긴 차시면 철저히 차단
         function selectRound(rNum) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             if (!unlockedRounds[rNum - 1]) {
@@ -712,7 +711,6 @@
             render();
         }
 
-        // 🔒 [철저 방어막 4] 플러스/마이너스 점수 조작 시 차시 잠금 상태를 코드 내부에서 이중 검증
         function adjustScore(amount) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
@@ -1079,13 +1077,6 @@
         }
 
         function teacherQuickEdit(num, category) {
-            const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
-            const rIdx = state.selectedRound - 1;
-            if (!unlockedRounds[rIdx]) {
-                alert("현재 조회 중인 차시가 잠겨있어 수정할 수 없습니다. 설정 탭에서 잠금을 해제해주세요.");
-                return;
-            }
-
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             const target = classStudents.find(s => Number(s.number) === Number(num));
             if (!target) return;
