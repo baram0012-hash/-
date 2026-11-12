@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 완벽 봉쇄 최종본)</title>
+    <title>🥌 플로어 컬링 수행평가 매니저 (차시 잠금 철저 봉쇄 최종 패치)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,8 +26,7 @@
     <script>
         // --- 💡 파이어베이스 연결 설정 ---
         const firebaseConfig = {
-            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app"
-        };
+            databaseURL: "https://ugch-floor-curling-default-rtdb.asia-southeast1.firebasedatabase.app" };
         
         let dbRef = null;
         try {
@@ -309,11 +308,14 @@
             const classStudents = (state.dbData.classes && state.dbData.classes[state.selectedClass]) || [];
             const cur = classStudents.find(s => Number(s.number) === Number(state.student.number)) || state.student;
             
-            // 🔒 [보안 강화] 현재 선택된 차시가 잠겨있다면 풀려있는 가장 첫 번째 차시로 강제 이동
+            // 🔒 [철저 방어막 1] 현재 선택된 차시가 잠겨있다면 해제된 차시 중 가장 첫 번째로 강제 이동
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
-            if (!unlockedRounds[state.selectedRound - 1]) {
+            const rIdx = state.selectedRound - 1;
+            if (!unlockedRounds[rIdx]) {
                 const firstUnlocked = unlockedRounds.findIndex(Boolean);
-                if (firstUnlocked !== -1) state.selectedRound = firstUnlocked + 1;
+                if (firstUnlocked !== -1) {
+                    state.selectedRound = firstUnlocked + 1;
+                }
             }
 
             const rKey = 'round_' + state.selectedRound;
@@ -380,10 +382,10 @@
                         <button onclick="changeTab('draw')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[45px] ${state.activeTab==='draw'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">🎯드로우</button>
                         <button onclick="changeTab('guard')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[45px] ${state.activeTab==='guard'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">🛡️가드</button>
                         <button onclick="changeTab('takeout')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='takeout'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">💥테이크</button>
-                        <button onclick="state.activeTab='guide'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='guide'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">📊기준</button>
-                        <button onclick="state.activeTab='rank'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='rank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-500 hover:text-slate-900'}">🏆전교30</button>
-                        <button onclick="state.activeTab='classRank'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[55px] ${state.activeTab==='classRank'?'bg-sky-500 text-slate-950 font-bold':'text-slate-500 hover:text-slate-900'}">🏫반별순위</button>
-                        <button onclick="state.activeTab='reward'; render();" class="flex-1 py-2 px-1 rounded-lg transition min-w-[45px] ${state.activeTab==='reward'?'bg-amber-400 text-slate-950 font-bold':'text-slate-500 hover:text-slate-900'}">🎁상품</button>
+                        <button onclick="changeTab('guide')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='guide'?'bg-slate-900 text-white font-bold':'text-slate-500 hover:text-slate-900'}">📊기준</button>
+                        <button onclick="changeTab('rank')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[50px] ${state.activeTab==='rank'?'bg-teal-500 text-slate-950 font-bold':'text-slate-500 hover:text-slate-900'}">🏆전교30</button>
+                        <button onclick="changeTab('classRank')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[55px] ${state.activeTab==='classRank'?'bg-sky-500 text-slate-950 font-bold':'text-slate-500 hover:text-slate-900'}">🏫반별순위</button>
+                        <button onclick="changeTab('reward')" class="flex-1 py-2 px-1 rounded-lg transition min-w-[45px] ${state.activeTab==='reward'?'bg-amber-400 text-slate-950 font-bold':'text-slate-500 hover:text-slate-900'}">🎁상품</button>
                     </div>
 
                     <div class="p-4 flex-grow flex flex-col justify-between">
@@ -393,12 +395,14 @@
             `;
         }
 
-        // 🔒 탭 변경 시에도 차시 잠금 상태 철저히 검사
+        // 🔒 [철저 방어막 2] 탭 변경 시 채점 탭(draw, guard, takeout)은 현재 차시가 잠겨있으면 절대 진입 불가
         function changeTab(tabName) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
-            if (!unlockedRounds[rIdx]) {
-                alert("현재 선택된 차시는 잠겨 있어서 입력 탭을 이용할 수 없습니다!");
+            
+            // 정보성 탭(guide, rank, classRank, reward)은 언제든 볼 수 있지만, 채점 탭은 잠겨있으면 차단
+            if ((tabName === 'draw' || tabName === 'guard' || tabName === 'takeout') && !unlockedRounds[rIdx]) {
+                alert("🔒 현재 선택된 차시는 잠겨 있어서 입력 화면을 이용할 수 없습니다!");
                 return;
             }
             state.activeTab = tabName;
@@ -697,23 +701,23 @@
             `;
         }
 
-        // 🔒 차시 선택 시 잠긴 차시면 철저히 차단
+        // 🔒 [철저 방어막 3] 차시 선택 버튼 클릭 시 잠긴 차시면 철저히 차단
         function selectRound(rNum) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             if (!unlockedRounds[rNum - 1]) {
-                alert("이 차시는 현재 잠겨 있어서 선택할 수 없습니다!");
+                alert("🔒 이 차시는 현재 잠겨 있어서 선택할 수 없습니다!");
                 return;
             }
             state.selectedRound = rNum;
             render();
         }
 
-        // 🔒 [원천 차단] 플러스 마이너스 버튼 조절 함수
+        // 🔒 [철저 방어막 4] 플러스/마이너스 점수 조작 시 차시 잠금 상태를 코드 내부에서 이중 검증
         function adjustScore(amount) {
             const unlockedRounds = state.dbData.unlockedRounds || [true, false, false, false, false];
             const rIdx = state.selectedRound - 1;
             if (!unlockedRounds[rIdx]) {
-                alert("현재 차시는 잠겨 있어서 점수를 변경할 수 없습니다!");
+                alert("🔒 현재 차시는 잠겨 있어서 점수를 변경할 수 없습니다!");
                 render();
                 return;
             }
